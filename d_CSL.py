@@ -1,0 +1,681 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+import os
+import numpy as np
+from sklearn.linear_model import LinearRegression
+import statsmodels.api as sm
+from sklearn.metrics import mean_squared_error
+import mat73
+from numba import jit, njit, vectorize
+import matplotlib.colors as mcolors
+from matplotlib.lines import Line2D
+from mpl_toolkits import mplot3d
+from scipy.cluster.hierarchy import dendrogram
+import matplotlib.pyplot as plt
+from tqdm.notebook import tqdm
+
+
+###################################################################
+## Analysis
+###################################################################
+
+
+
+
+@njit
+def cross_corr(x, y, n_lags):
+    """Returns the absolute values of cross correlation of 2 variables with any specified lag window
+
+    Parameters:
+    x (array like): array of a variable of any length
+    y (array like): array of a variable of same length as x
+    n_lags (int): lag window size (function takes both positive and negative lag of the same window)
+
+    Returns:
+    cross correlation of 2 variable (array like), each entry of the array, the correlationat each lag window.
+
+   """
+
+    lags = np.arange(-n_lags+1, n_lags)
+    corr_coef = np.zeros(len(lags))
+    for i in range(len(corr_coef)):
+        if lags[i]< 0:
+            corr_coef[i] = np.corrcoef(x[:-np.abs(lags[i])], y[np.abs(lags[i]):])[1,0]
+        elif lags[i]==0:
+            corr_coef[i] = np.corrcoef(x, y)[1,0]
+        else:
+            corr_coef[i] = np.corrcoef(x[lags[i]:], y[:-lags[i]])[1,0]
+
+    return np.abs(corr_coef)
+
+
+
+def cross_correlation(data,n_perm,n_lags):
+    """Computes correlation of a given data both at zero and a desired lag window. Takes both positive and negative lags.
+
+    Parameters:
+    data (array like, matrix): array of a variable of any length. (Variables are aligned on the rows)
+    n_lags (int): desired lag window size to be taken.
+
+    Returns:
+    corr_coef_no_lag (array like, matrix): Correlation matrix of data at zero lags
+    max_ccoef_mat (array like, matrix): Correlation matrix of data at a specified maximum lag window (n_lags)
+    max_corr_lag (array like, matrix): Matrix of lag at which maximum correlation occured.
+
+    """
+
+    # cross correlation at zero lag using the np.corrcoef()
+    corr_coef = np.abs(np.corrcoef(data))
+    pVal_corr, pVal_Xcorr = np.zeros_like(corr_coef),np.zeros_like(corr_coef)
+    
+    ##########################################################
+    # computing cross correlation of all neuron with lag of 20
+    # selected the max correlations at which ever lag it occurs
+    ##########################################################
+    n_var,max_ccoef_mat,max_corr_lag = corr_coef.shape[0],np.zeros_like(corr_coef),np.zeros_like(corr_coef)
+    lags = np.arange(-n_lags+1,n_lags).astype(int)
+    for n in range(0,n_var):
+        for i in range(n,n_var):
+            pVal_corr[n,i] = perm_test_shift(data[n,:],data[i,:],n_perm)
+            pVal_corr[i,n] = pVal_corr[n,i]
+            ccor = cross_corr(data[n,:], data[i,:],n_lags)
+            max_ccoef_mat[n,i] = np.max(ccor)
+            max_ccoef_mat[i,n] = max_ccoef_mat[n,i]
+            
+            max_corr_lag[n,i] = lags[np.argmax(ccor)]
+            max_corr_lag[i,n]= max_corr_lag[n,i]
+            
+            ## Computing p_Values of cross correlation 
+            l = lags[np.argmax(ccor)]
+            if l < 0:
+                pVal_Xcorr[n,i] = perm_test_shift(data[n,:-np.abs(l)],data[i,np.abs(l):],n_perm)
+            elif l==0:
+                pVal_Xcorr[n,i] = perm_test_shift(data[n,:],data[i,:],n_perm)
+            else:
+                pVal_Xcorr[n,i] = perm_test_shift(data[n,l:],data[i,:-l],n_perm)
+            pVal_Xcorr[i,n] = pVal_Xcorr[n,i]
+    max_corr_lag = max_corr_lag.astype(int)
+
+    return corr_coef,pVal_corr,max_ccoef_mat,max_corr_lag,pVal_Xcorr
+
+
+
+@jit(nopython=True)
+def perm_test(x, y, shuffle):
+    count, corr_1 = 0,np.corrcoef(x,y)[1,0]
+    for j in range(shuffle):
+        x_copy = np.copy(x)
+        np.random.shuffle(x_copy)
+        corr_2 = np.corrcoef(x_copy,y)[1,0]
+        if np.abs(corr_2) >= np.abs(corr_1):
+            count+=1
+    return count/shuffle
+
+
+
+@jit(nopython=True)
+def perm_test_shift(x, y,shuffle):
+    count,corr_1 = 0,np.corrcoef(x,y)[1,0]
+    val = np.random.randint(30,len(x)-30, shuffle)     # change 4 back to 30 and len(x)-30
+    for j in range(shuffle):
+        x_copy = np.copy(x)
+        x_ = np.roll(x_copy,val[j])
+        corr_2 = np.corrcoef(x_,y)[1,0]
+        if np.abs(corr_2) >= np.abs(corr_1):
+            count+=1
+    return count/shuffle
+
+
+
+def prep_data(X, nn):
+    if nn == None or nn == 0:
+        X_ = X
+        return X_
+    else:
+        X_ = X[:,(nn):]
+        for i in range(nn):
+            idx1, idx2 = nn-1-i,-i-1
+            X_ = np.r_[X_, X[:,idx1:idx2]]
+        return X_
+
+        
+
+def adj_mtx(n_neur):
+    A = np.random.choice([0,0.5,0.85], p=[0.9,0.03,0.07], size=(n_neur,n_neur)) ### A is not the adjacency matrix in the typical sense
+    A = 0.5*(A)
+    A[0:10,0:10] =np.zeros((10,10))
+    for n, i in enumerate(A):
+        A[n][n]=1
+    for n, i in enumerate(A):
+        A[n]=A[n]/np.sum(A[n])
+    return A
+
+
+
+def continuous_noise_fun(num, l):
+    xx = np.linspace(0,500,l)
+    noise = np.zeros((num,l))
+    for i in range(num):
+        a = 2*np.random.normal(0,0.25,size=6)
+        c = 500*(np.random.random(size=6))
+        s = 1+100*(np.random.random(size=6))
+        yy = 0*xx
+        for j in range(6):
+            yy = yy + a[j]*np.exp(-(xx-c[j])**2/s[j])
+        noise[i] = yy
+    return noise
+
+
+
+def correlation_func(traces,n_perm,n_past):
+    data = prep_data(traces,n_past)
+    corr,n,n_neur = np.abs(np.corrcoef(data)),traces.shape[0],data.shape[0]
+    pVal_corr = np.zeros((n_neur,n))
+    for i in range(n_neur):
+        for j in range(n):
+            pVal_corr[i,j] = perm_test_shift(data[i,:],data[j,:],n_perm)
+    return corr[:,:n], pVal_corr
+
+
+def inv_correlation_func(traces,n_perm,n_past):
+    data = prep_data(traces,n_past)
+    n_neur=traces.shape[0]
+    inv_corr, pVal_inv_corr = np.zeros((data.shape[0],n_neur)), np.zeros((data.shape[0],n_neur))
+    for i in range(0,data.shape[0]):
+        for j in range(0,n_neur):
+            x,y,z = data[i],data[j],np.delete(data,[i,j],axis=0)
+            x_res,y_res = residual(x,z),residual(y,z)
+            inv_corr[i,j],pVal_inv_corr[i,j] = np.abs(np.corrcoef(x_res,y_res)[1,0]), perm_test_shift(x_res,y_res,n_perm)
+    return inv_corr, pVal_inv_corr
+
+
+
+def conditioning_set(X,n_past,i,j):
+    n = X.shape[0]
+    k, data = i//n, prep_data(X,n_past)
+    z_,y_ = np.delete(data,np.r_[np.arange(k*n),[i]],axis=0), prep_data(X[j,:].reshape((1,X.shape[1])),n_past)
+    z = np.r_[z_,y_[1:k]]
+    return z
+
+
+
+#implementing GC
+def analysis_GC(traces,n_perm,n_past):
+    data = prep_data(traces,n_past)
+    n, n_neur = traces.shape[0], data.shape[0]
+    corr,pVal_corr = correlation_func(traces,n_perm,n_past)
+    inv_corr,pVal_inv_corr =np.zeros((n_neur,n)),np.zeros((n_neur,n))
+    for i in range(0,n_neur):
+        for j in range(0,n):
+            x,y,z = data[i],data[j],conditioning_set(traces,n_past,i,j)             
+            x_res,y_res = residual(x,z),residual(y,z)
+            inv_corr[i,j],pVal_inv_corr[i,j] = np.abs(np.corrcoef(x_res,y_res)[1,0]),perm_test_shift(x_res,y_res,n_perm)
+    return corr,pVal_corr,inv_corr,pVal_inv_corr
+
+
+def proceed_GC(corr,pVal_corr,inv_corr,pVal_inv_corr,alpha,beta,n_past):
+    sig_corr = np.multiply(corr,pVal_corr<=alpha)        # compute significant correlation matrix
+    sig_inv = np.multiply(inv_corr,pVal_inv_corr<=beta)  # compute significant partial correlation matrix
+    inferred = np.logical_and(sig_corr,sig_inv)          # inferred matrix
+    plott_(inferred,n_past)   
+    b, all_, n_neur = 0, [], inferred.shape[1]
+    
+    # merging results for the GC order used
+    for a in range(n_past+1):     
+        all_.append(inferred[a*n_neur:(a+1)*n_neur,b*n_neur:(b+1)*n_neur])
+    nn, new_inf = n_past+1, all_[0]
+    for i in range(1,n_past):        # use 'nn' if all matrices are to be used, here i take out the last one
+        new_inf = np.logical_or(new_inf,all_[i])
+#     new_inf = np.multiply(corr[:n_neur,:],new_inf)   # multiplied with correlation to determine the strength of connections
+#     np.fill_diagonal(new_inf,0)      # self connectivity removed
+    plt.figure()
+    plt.imshow(new_inf,vmin=0,vmax=1)
+#     plt.colorbar()
+    return new_inf # take into account variations in lags  
+
+
+def proceed_GC_new(corr,pVal_corr,inv_corr,pVal_inv_corr,alpha,beta,n_past):
+    """
+    only select matrix at the lag speified (lag of interest)
+    """
+    
+    sig_corr = np.multiply(corr,pVal_corr<=alpha)        # compute significant correlation matrix
+    sig_inv = np.multiply(inv_corr,pVal_inv_corr<=beta)  # compute significant partial correlation matrix
+    inferred = np.logical_and(sig_corr,sig_inv)          # inferred matrix
+#     plott_(inferred,n_past)   
+    b, all_, n_neur = 0, [], inferred.shape[1]
+    # merging results for the GC order used
+    for a in range(n_past+1):     
+        all_.append(inferred[a*n_neur:(a+1)*n_neur,b*n_neur:(b+1)*n_neur])
+    new_inf = all_[1]
+#     np.fill_diagonal(new_inf,0)      # self connectivity removed
+#     plt.figure()
+#     plt.imshow(new_inf,vmin=0,vmax=1)
+    return new_inf  # only lag speified
+
+def residual(x,z):
+    model = LinearRegression(fit_intercept=True)
+    model.fit(z.T,x)
+    coefs,intercept = model.coef_,model.intercept_
+    residual = x - np.dot(coefs,z)-intercept
+    return residual
+
+
+def vertixDegree(inferred_):
+    nodes_out,nodes_in = {},{}
+    for i in range(inferred_.shape[0]):
+        nodes_out[i] = np.where(inferred_[i]!=0)[0]
+        nodes_in[i] = np.where(inferred_.T[i]!=0)[0]
+    return nodes_out,nodes_in
+
+
+
+def plot_Inferred_3D(inferred,centers,arr):
+    x_val,y_val,z_val = xyz_maker(inferred,centers)
+    fig = plt.figure(figsize = (10,10))
+    ax = fig.add_subplot(111,projection="3d")
+    ax.scatter(centers[:,0],centers[:,1],centers[:,2],color='red',s=10,marker='.')
+    ax.scatter(centers[arr,0],centers[arr,1],centers[arr,2],color='green',s=15,marker='*')
+    for a in range(len(x_val)):
+        ax.plot(x_val[a],y_val[a],z_val[a],lw=0.7,alpha=.7)
+    ax.grid(False)
+    ax.set_xlabel('X-axis')
+    ax.set_ylabel('Y-axis')
+    ax.set_zlabel('z-axis')
+    return fig
+
+
+
+def xyz_maker(inferred,topography):
+    """
+    A func to make coordinates for each ROIs
+    :param inferred: shape [n x n] inferred matrix
+    :param topography: the position of ROIs given from data
+    :return: coordinates for each ROIs and the edges [t]
+    """
+    t = np.transpose(np.where(inferred>0))
+    point_1 = np.zeros_like(t)
+    point_2 = np.zeros_like(t)
+
+    for i in range(len(t)):
+        point_1[i]=topography[t[i,0],[0,1]]
+        point_2[i]=topography[t[i,1],[0,1]]
+
+    x_val,y_val,z_val = [],[],[]
+    for i in range(len(point_1)):
+        x_val.append([point_1[i,0],point_2[i,0]])
+        y_val.append([point_1[i,1],point_2[i,1]])
+        z_val.append([topography[t[i,0],2],topography[t[i,1],2]])
+
+    return x_val,y_val,z_val, t
+
+
+
+# def single_res(input1,input2):
+#     return input1 - (input1.transpose() @ input2) / (input2.transpose() @ input2) * input2
+
+
+
+def confusion_matrix(inferred, A):
+    TP_inf = np.sum(np.logical_and(A != 0,inferred!=0))
+    FN_inf = np.sum(np.logical_and(A != 0,inferred==0))
+    FP_inf = np.sum(np.logical_and(A == 0,inferred!=0))
+    TN_inf = np.sum(np.logical_and(A == 0,inferred==0))
+    return np.array([[TP_inf,FN_inf],
+                     [FP_inf,TN_inf]])
+
+
+def apr_metrics(confusion_matrix):
+    confusion_matrix = confusion_matrix.flatten()
+    accuracy = (confusion_matrix[0] + confusion_matrix[3])/(np.sum(confusion_matrix))
+    precision = confusion_matrix[0]/(confusion_matrix[0]+confusion_matrix[2])
+    recall = confusion_matrix[0]/(confusion_matrix[0]+confusion_matrix[1])
+    FPR = confusion_matrix[2]/(confusion_matrix[2]+confusion_matrix[3])
+    return np.array([accuracy, precision, recall, FPR])
+
+
+def repopulate(inf,traces,idx):
+    inferred_ = np.zeros((traces.shape[0],traces.shape[0]))
+    p = np.transpose(np.where(inf!=0))
+    for i in range(len(p)):
+        inferred_[idx[p[i,0]], idx[p[i,1]]] = 1
+    return inferred_
+
+
+def distance(centers,inf):
+    loc = np.transpose(np.where(inf>0))
+    dist = np.zeros(len(loc))
+    for i in range(len(loc)):
+        p1,p2 = centers[loc[i,0]],centers[loc[i,1]] 
+        dist[i] = np.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2 + (p2[2]-p1[2])**2)
+    return dist
+
+
+def plott_(inferred,n_past):
+    nn,n_neur = n_past+1, inferred.shape[1]
+    fig, axs = plt.subplots(1,nn,figsize=(3.5*nn,3.5))
+    b = 0
+    for a in range(nn):
+        jj  = inferred[a*n_neur:(a+1)*n_neur,b*n_neur:(b+1)*n_neur]
+        axs[a].imshow(jj)
+        axs[a].axis('off')
+    plt.tight_layout()
+    
+
+def counter_(out_,from_,emitter,reciever):
+    n_out,n_in = len(out_),len(from_)
+    for el in out_:
+        if el in emitter:
+            n_out -= 1
+    for el in from_:
+        if el in reciever:
+            n_in -= 1
+    return n_out, n_in
+
+
+def proceed(traces,n_perm,n_past):
+    corr,pVal_corr = correlation_func(traces,n_perm,n_past)    # no conditioning on the past
+    inv_corr,pVal_inv_corr = inv_correlation_func(traces,n_perm,n_past)
+    return corr,pVal_corr,inv_corr,pVal_inv_corr
+
+
+
+def mat_func(A,inf):
+    return 40*np.logical_and(A!=0,inf!=0) + 30*np.logical_and(A==0,inf!=0) + 20*np.logical_and(A!=0,inf==0)+10*np.logical_and(A==0,inf==0)
+
+
+
+def modify_inv_corr(inv_corr,a):
+    # a is the percentile to be discarded
+    m = (inv_corr.max()-inv_corr.min())*a
+    return np.multiply(inv_corr>=m,inv_corr)
+
+
+def plot_projections(corr,centers):
+    fig = plt.figure(figsize = (10,6))
+    ax = fig.add_subplot(111,projection="3d")
+    p = ax.scatter(centers[:,0],centers[:,1],centers[:,2],marker='o',s=10,c=corr,cmap ='seismic',vmin=-.4,vmax=.4)
+    fig.colorbar(p)
+
+
+def replace_nan_(data,frames,delete_frames=bool):
+    if delete_frames:
+        data = np.delete(data,np.array(frames),axis=1)
+    else:
+        for a in range(data.shape[0]):
+            for i in frames:
+                data[a,i] = (data[a,i-1]+data[a,i+1])/2
+    return data
+
+
+
+##################################################################
+##################################################################
+# with mutual information
+##################################################################
+##################################################################
+
+@jit(nopython=True)
+def perm_test_MI(x,y,N):
+    count,mi = 0,computeMI(x,y)
+    val = np.random.randint(30, len(x)-30,N)
+    for j in range(N):
+        x_copy = np.copy(x)
+        x_ = np.roll(x_copy,val[j])
+        mi_ = computeMI(x_,y)
+        if mi_ >= mi:
+            count+=1
+    return count/N
+
+
+
+@jit(nopython=True)
+def computeMI(x, y):
+    sum_mi = 0.0
+    x_value_list,y_value_list = np.unique(x),np.unique(y)
+    Px = np.array([len(x[x==xval])/float(len(x)) for xval in x_value_list])
+    Py = np.array([len(y[y==yval])/float(len(y)) for yval in y_value_list])
+    for i in range(len(x_value_list)):
+        if Px[i] ==0.:
+            continue
+        sy = y[x == x_value_list[i]]
+        if len(sy)== 0:
+            continue
+        pxy = np.array([len(sy[sy==yval])/float(len(y))  for yval in y_value_list]) #p(x,y)
+        t = pxy[Py>0.]/Py[Py>0.] /Px[i] # log(P(x,y)/( P(x)*P(y))
+        sum_mi += sum(pxy[t>0]*np.log2( t[t>0]) ) # sum ( P(x,y)* log(P(x,y)/( P(x)*P(y)) )
+    return sum_mi
+
+
+
+def MI_func(traces,n_perm,n_past):
+    data = prep_data(traces,n_past)
+    n,n_neur = traces.shape[0],data.shape[0]
+    MI,pVal_MI = np.zeros((n_neur,n)), np.zeros((n_neur,n))
+    for i in range(n_neur):
+        for j in range(n):
+            MI[i,j],pVal_MI[i,j] = computeMI(data[i,:],data[j,:]), perm_test_MI(data[i,:],data[j,:],n_perm)
+    return MI[:,:n], pVal_MI
+
+
+
+def analysis_GC_MI(traces,n_perm,n_past):
+    data = prep_data(traces,n_past)
+    n, n_neur = traces.shape[0], data.shape[0]
+    MI,pVal_MI = MI_func(traces,n_perm,n_past)
+    CMI,pVal_CMI =np.zeros((n_neur,n)),np.zeros((n_neur,n))
+    for i in tqdm(range(0,n_neur)):
+        for j in range(0,n):
+            x,y = data[i,:], data[j,:],
+            z = conditioning_set(traces,n_past,i,j)
+            x_res,y_res = residual(x,z),residual(y,z)
+            CMI[i,j],pVal_CMI[i,j] = computeMI(x_res,y_res),perm_test_MI(x_res,y_res,n_perm)
+    return MI,pVal_MI,CMI,pVal_CMI
+
+
+##################################################################
+##################################################################
+
+
+#######################################################
+## pre processing C elegans data
+#######################################################
+
+class Database:
+
+    def __init__(self, data_set_no=2):
+        data_dict = mat73.loadmat('NoStim_Data.mat')
+        data  = data_dict['NoStim_Data']
+
+        deltaFOverF_bc = data['deltaFOverF_bc'][data_set_no]
+        derivatives = data['derivs'][data_set_no]
+        NeuronNames = data['NeuronNames'][data_set_no]
+        fps = data['fps'][data_set_no]
+        States = data['States'][data_set_no]
+
+
+        self.states = np.sum([n*States[s] for n, s in enumerate(States)], axis = 0).astype(int) # making a single states array in which each number corresponds to a behaviour
+        self.state_names = [*States.keys()]
+        self.neuron_traces = np.array(deltaFOverF_bc).T
+        self.derivative_traces = derivatives['traces'].T
+        self.neuron_names = np.array(NeuronNames, dtype=object)
+        self.fps = fps
+
+        f = open('readme.txt', 'r')
+        self.DESCR = f.read()
+        f.close()
+        '''
+        #Sort the data according to the clustering dendogram (only for dataset 3, as of now)
+        self.neuron_traces = self.neuron_traces[sort_indices]
+        self.derivative_traces = self.derivative_traces[sort_indices]
+        self.NeuronNames = self.NeuronNames[sort_indices]
+        '''
+        ## Creating dictionary of identified neurons and their indices
+        #self.neuron_id = {}
+        #for n, i in enumerate(self.NeuronNames):
+        #    if type(i) == list:
+        #        self.neuron_id[i[0]]=n
+
+
+
+def plot_raster(neuron_traces, derivative_traces):
+    fig, ax = plt.subplots(2,1, figsize=(15,10))
+    plt0 = ax[0].imshow(neuron_traces, aspect="auto", vmin=0, vmax=1)
+    #ax[0].set_yticks(np.arange(neuron_names.shape[0]))
+    #ax[0].set_yticklabels(neuron_names)
+    fig.colorbar(plt0, ax=ax[0])
+    plt1 = ax[1].imshow(derivative_traces, cmap='seismic', aspect="auto", vmin=-0.25, vmax=0.25)
+    #ax[1].set_yticks(np.arange(neuron_names.shape[0]))
+    #ax[1].set_yticklabels(neuron_names)
+    fig.colorbar(plt1, ax=ax[1])
+    plt.show()
+
+
+
+def dendogram(classifier):
+    ## Dendogram
+    # Create linkage matrix and then plot the dendrogram
+    # create the counts of samples under each node
+    counts = np.zeros(classifier.children_.shape[0])
+    n_samples = len(classifier.labels_)
+    for i, merge in enumerate(classifier.children_):
+        current_count = 0
+        for child_idx in merge:
+            if child_idx < n_samples:
+                current_count += 1  # leaf node
+            else:
+                current_count += counts[child_idx - n_samples]
+        counts[i] = current_count
+    linkage_matrix = np.column_stack([classifier.children_, classifier.distances_, counts]).astype(float)
+    # Plot the corresponding dendrogram
+    R = dendrogram(linkage_matrix, truncate_mode='level')
+    ## Sorting: The features are ordered according to the order of the leaves in the dendogram
+    sort_indices = R['leaves']
+    return sort_indices
+
+
+
+#####################################################
+#####################################################
+### Rising Flanks
+#####################################################
+#####################################################
+
+def new_GC_analysis(X,idx,n_past,n_perm,num):
+    corr,pVal_corr = np.zeros((len(idx)*n_past, len(idx))),np.zeros((len(idx)*n_past,len(idx)))
+    inv_corr,pVal_inv_corr = np.zeros_like(corr), np.zeros_like(corr)
+    for i in tqdm(range(len(idx)*n_past)):
+        for j in range(len(idx)):
+            if i < X.shape[0]:
+                same_idx = sorted(set(idx[i]).intersection(idx[j]))   # combine()
+            else:
+                i_= i%len(idx)
+                same_idx = sorted(set(idx[i_]).intersection(idx[j])) # combine()
+            if len(same_idx)>num:
+                dat = prep_data(X[:,same_idx],n_past)
+                corr[i,j],pVal_corr[i,j] = np.abs(np.corrcoef(dat[i],dat[j])[1,0]),perm_test_(dat[i],dat[j],n_perm)
+                x,y,z = dat[i],dat[j],conditioning_set(X[:,same_idx],n_past,i,j)
+                x_,y_ = residual(x,z),residual(y,z)
+                inv_corr[i,j],pVal_inv_corr[i,j] = np.abs(np.corrcoef(x_,y_)[1,0]),perm_test_(x_,y_,n_perm)  
+            else:
+                corr[i,j],pVal_corr[i,j] = 0,1
+                inv_corr[i,j],pVal_inv_corr[i,j] = 0,1
+    return corr,pVal_corr,inv_corr,pVal_inv_corr
+
+
+
+def moving_avg(arr,window_size=3):
+    i,moving_averages = 0, []
+    while i<(len(arr)-window_size+1):
+        window = arr[i:i + window_size]
+        window_average = round(sum(window) / window_size, 4)
+        moving_averages.append(window_average)
+        i += 1
+    return moving_averages
+
+
+def ideal_lp(f_c,f_s,M):
+    amp = np.ones(M)
+    amp[int(f_c*M/f_s):-int(f_c*M/f_s)] = 0
+    phase = np.zeros(M)
+    H_f = amp*np.exp(1j*phase)
+    h_n = np.fft.fftshift(np.real(np.fft.ifft(H_f)))
+    return h_n
+
+
+@jit(nopython=True)
+def perm_test_(x,y,N):
+    count, corr_1 = 0, np.corrcoef(x,y)[1,0]
+    val = np.random.randint(5, len(x)-8, N)     # change 4 back to 30 and len(x)-30
+    for j in range(N):
+        x_copy = np.copy(x)
+        x_ = np.roll(x_copy,val[j])
+        corr_2 = np.corrcoef(x_,y)[1,0]
+        if np.abs(corr_2) >= np.abs(corr_1):
+            count+=1
+    return count/N
+
+
+
+def cross_corr_(x, y, n_lags):
+    return np.abs(np.corrcoef(x[:-n_lags], y[n_lags:])[1,0])  
+
+
+
+def cutt_mvg(arr,win_len):
+    row_ = moving_avg(arr,window_size=5)
+    x_ = np.roll(row_,np.random.randint(30,len(arr)-30,1)) # np.random.randint(30,len(arr)-30,1) Used 10 for proper acccessment
+    j = np.diff(x_)> np.mean(np.diff(row_)>0) # filtering out small rises that are less than 0  
+    idx = np.where(j!=0)[0]
+    return np.pad(row_,(0,win_len-1),'constant')[idx]
+
+
+
+def cutt_lp(arr,f_c,f_s,M):
+    h_n = ideal_lp(f_c,f_s,M)
+    conv = np.convolve(arr,h_n,'same')
+    j = np.diff(conv) > np.mean(np.diff(conv)>0.5)/10     # /5
+    idx = np.where(j>0)[0]
+    return arr[idx],idx      # conv[idx] is the squashed vector  # arr ==> conv
+
+
+
+def idx_check_(row):
+    row_list, new, temp = list(row),[],[]
+    for i in range(len(row_list)-1):
+        if row_list[i]+1 == row_list[i+1]:
+        # grow this list
+            temp.append(row_list[i])
+        else:
+        # add the element that is not the same as the next element, then create a new list
+            temp.append(row_list[i])
+            new.append(temp.copy())
+            temp = []
+    else:
+      # when the for loop finishes, there is one element left over. This else clause will run when the for loop finishes
+        temp.append(row_list[-1])
+        new.append(temp)
+    return new
+
+
+
+def combine(list_of_indices):
+    new_list_of_indices = []
+    for i in range(len(list_of_indices)-1):
+        idx = list_of_indices[i]
+        new_list_of_indices.append(idx)
+        if idx + 2 == list_of_indices[i+1]:
+            new_list_of_indices.append(idx+1)
+    new_list_of_indices.append(list_of_indices[-1])
+    return new_list_of_indices
+
+
+
+def diff_(inf_rising,inf):
+    mat = inf_rising==inf
+    mat = inf_rising.copy()
+    mat[inf_rising==inf] = False
+    return mat
+#####################################################
+#####################################################

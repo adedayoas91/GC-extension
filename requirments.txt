@@ -1,0 +1,9 @@
+pylint
+pytest
+pandas
+scikit-learn
+numba
+numpy
+matplotlib
+mat73
+tqdm
