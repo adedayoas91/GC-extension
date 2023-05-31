@@ -148,12 +148,13 @@ def prep_data(X, nn):
     Creates shifted versions of original data based on the number of pasts nn required.
     Concatenate the shifted arrays and return the new data.
     Args:
-        X:
-        nn:
+        X: (array-like, shape [# of variable X # of samples]): Raw data
+        nn: (int) number of shifted version of data required
 
-    Returns:
+    Returns: shifted data
 
     """
+
     if nn == None or nn == 0:
         X_ = X
         return X_
@@ -227,6 +228,14 @@ def conditioning_set(X,n_past,i,j):
 
 #implementing GC
 def analysis_GC(traces,n_perm,n_past):
+    """
+    Performs the analysis
+    Args:
+        traces: (array-like, matrices shape [# of variables X samples]) Data
+        n_perm: (int) number of permutations for p_value computations
+        n_past: (int) number of pasts desired
+    Returns: correlation, correspondomg p-Values, inverse correlation and the p-valeus
+    """
     data = prep_data(traces,n_past)
     n, n_neur = traces.shape[0], data.shape[0]
     corr,pVal_corr = correlation_func(traces,n_perm,n_past)
@@ -507,77 +516,8 @@ def analysis_GC_MI(traces,n_perm,n_past):
 ## pre processing C elegans data
 #######################################################
 
-class Database:
-
-    def __init__(self, data_set_no=2):
-        data_dict = mat73.loadmat('NoStim_Data.mat')
-        data  = data_dict['NoStim_Data']
-
-        deltaFOverF_bc = data['deltaFOverF_bc'][data_set_no]
-        derivatives = data['derivs'][data_set_no]
-        NeuronNames = data['NeuronNames'][data_set_no]
-        fps = data['fps'][data_set_no]
-        States = data['States'][data_set_no]
 
 
-        self.states = np.sum([n*States[s] for n, s in enumerate(States)], axis = 0).astype(int) # making a single states array in which each number corresponds to a behaviour
-        self.state_names = [*States.keys()]
-        self.neuron_traces = np.array(deltaFOverF_bc).T
-        self.derivative_traces = derivatives['traces'].T
-        self.neuron_names = np.array(NeuronNames, dtype=object)
-        self.fps = fps
-
-        f = open('readme.txt', 'r')
-        self.DESCR = f.read()
-        f.close()
-        '''
-        #Sort the data according to the clustering dendogram (only for dataset 3, as of now)
-        self.neuron_traces = self.neuron_traces[sort_indices]
-        self.derivative_traces = self.derivative_traces[sort_indices]
-        self.NeuronNames = self.NeuronNames[sort_indices]
-        '''
-        ## Creating dictionary of identified neurons and their indices
-        #self.neuron_id = {}
-        #for n, i in enumerate(self.NeuronNames):
-        #    if type(i) == list:
-        #        self.neuron_id[i[0]]=n
-
-
-
-def plot_raster(neuron_traces, derivative_traces):
-    fig, ax = plt.subplots(2,1, figsize=(15,10))
-    plt0 = ax[0].imshow(neuron_traces, aspect="auto", vmin=0, vmax=1)
-    #ax[0].set_yticks(np.arange(neuron_names.shape[0]))
-    #ax[0].set_yticklabels(neuron_names)
-    fig.colorbar(plt0, ax=ax[0])
-    plt1 = ax[1].imshow(derivative_traces, cmap='seismic', aspect="auto", vmin=-0.25, vmax=0.25)
-    #ax[1].set_yticks(np.arange(neuron_names.shape[0]))
-    #ax[1].set_yticklabels(neuron_names)
-    fig.colorbar(plt1, ax=ax[1])
-    plt.show()
-
-
-
-def dendogram(classifier):
-    ## Dendogram
-    # Create linkage matrix and then plot the dendrogram
-    # create the counts of samples under each node
-    counts = np.zeros(classifier.children_.shape[0])
-    n_samples = len(classifier.labels_)
-    for i, merge in enumerate(classifier.children_):
-        current_count = 0
-        for child_idx in merge:
-            if child_idx < n_samples:
-                current_count += 1  # leaf node
-            else:
-                current_count += counts[child_idx - n_samples]
-        counts[i] = current_count
-    linkage_matrix = np.column_stack([classifier.children_, classifier.distances_, counts]).astype(float)
-    # Plot the corresponding dendrogram
-    R = dendrogram(linkage_matrix, truncate_mode='level')
-    ## Sorting: The features are ordered according to the order of the leaves in the dendogram
-    sort_indices = R['leaves']
-    return sort_indices
 
 
 
