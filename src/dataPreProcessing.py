@@ -8,7 +8,7 @@ def replace_nan_(data, frames, delete_frames = bool):
         frames: (array-like: vector) Index of identified defected frames
         delete_frames:
 
-    Returns:
+    Returns: Data without bad frames
 
     """
     if delete_frames:
