@@ -384,17 +384,6 @@ def distance(centers,inf):
         p1,p2 = centers[loc[i,0]],centers[loc[i,1]] 
         dist[i] = np.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2 + (p2[2]-p1[2])**2)
     return dist
-
-
-def plott_(inferred,n_past):
-    nn,n_neur = n_past+1, inferred.shape[1]
-    fig, axs = plt.subplots(1,nn,figsize=(3.5*nn,3.5))
-    b = 0
-    for a in range(nn):
-        jj  = inferred[a*n_neur:(a+1)*n_neur,b*n_neur:(b+1)*n_neur]
-        axs[a].imshow(jj)
-        axs[a].axis('off')
-    plt.tight_layout()
     
 
 def counter_(out_,from_,emitter,reciever):
@@ -426,21 +415,9 @@ def modify_inv_corr(inv_corr,a):
     return np.multiply(inv_corr>=m,inv_corr)
 
 
-def plot_projections(corr,centers):
-    fig = plt.figure(figsize = (10,6))
-    ax = fig.add_subplot(111,projection="3d")
-    p = ax.scatter(centers[:,0],centers[:,1],centers[:,2],marker='o',s=10,c=corr,cmap ='seismic',vmin=-.4,vmax=.4)
-    fig.colorbar(p)
 
 
-def replace_nan_(data,frames,delete_frames=bool):
-    if delete_frames:
-        data = np.delete(data,np.array(frames),axis=1)
-    else:
-        for a in range(data.shape[0]):
-            for i in frames:
-                data[a,i] = (data[a,i-1]+data[a,i+1])/2
-    return data
+
 
 
 
