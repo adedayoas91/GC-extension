@@ -11,7 +11,6 @@ from numba import jit, njit, vectorize
 import matplotlib.colors as mcolors
 from matplotlib.lines import Line2D
 from mpl_toolkits import mplot3d
-from scipy.cluster.hierarchy import dendrogram
 import matplotlib.pyplot as plt
 from tqdm.notebook import tqdm
 
@@ -103,6 +102,14 @@ def cross_correlation(data,n_perm,n_lags):
 
 @jit(nopython=True)
 def perm_test(x, y, shuffle):
+    """
+    Computes p_value of correlation of two iid generated variables.
+    Args:
+        x: (array like, vector): Realisation of a variable x
+        y: (array like, vector): Realisation of a variable y
+        shuffle: Number of permutations
+    Returns: p_value
+    """
     count, corr_1 = 0,np.corrcoef(x,y)[1,0]
     for j in range(shuffle):
         x_copy = np.copy(x)
@@ -116,6 +123,14 @@ def perm_test(x, y, shuffle):
 
 @jit(nopython=True)
 def perm_test_shift(x, y,shuffle):
+    """
+        Computes p_value of correlation of two time series.
+        Args:
+            x: (array like, vector): Time series x
+            y: (array like, vector): Realisation of a variable y
+            shuffle: Number of permutations
+        Returns: p_value
+        """
     count,corr_1 = 0,np.corrcoef(x,y)[1,0]
     val = np.random.randint(30,len(x)-30, shuffle)     # change 4 back to 30 and len(x)-30
     for j in range(shuffle):
@@ -129,6 +144,16 @@ def perm_test_shift(x, y,shuffle):
 
 
 def prep_data(X, nn):
+    """
+    Creates shifted versions of original data based on the number of pasts nn required.
+    Concatenate the shifted arrays and return the new data.
+    Args:
+        X:
+        nn:
+
+    Returns:
+
+    """
     if nn == None or nn == 0:
         X_ = X
         return X_
