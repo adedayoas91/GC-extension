@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/GC-Extension.iml" filepath="$PROJECT_DIR$/.idea/GC-Extension.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/GC-extension.iml" filepath="$PROJECT_DIR$/.idea/GC-extension.iml" />
     </modules>
   </component>
 </project>
