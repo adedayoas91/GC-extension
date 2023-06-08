@@ -35,7 +35,7 @@ def plott_(inferred,n_past):
     fig, axs = plt.subplots(1, nn, figsize = (3.5 * nn, 3.5))
     b = 0
     for a in range(nn):
-        jj  = inferred[a * n_neur : (a+1) * n_neur, b * n_neur : (b + 1) * n_neur]
+        jj  = inferred[a * n_neur : (a + 1) * n_neur, b * n_neur : (b + 1) * n_neur]
         axs[a].imshow(jj)
         axs[a].axis('off')
     plt.tight_layout()
