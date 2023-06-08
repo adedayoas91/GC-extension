@@ -1,13 +1,63 @@
 import mat73
 import numpy as np
-def load_data():
-    # load data
 
-    if split:
-        X_train, X_test, y_train, y_test = train_test_split(x, z, test_size=test_size)
-        return X_train, X_test, y_train, y_test
+
+
+def load_data(path):
+    traces = np.load('path')
+    return traces 
+
+
+def simulate_data(A, m, iid = bool, latency = bool):
+    """
+    Function to create a iid dataset for analysis
+
+    Parameters
+    A (matrix) - Adjacency matrix (A lower triangular matrix - topological order of the variables)
+    m (int) - desired length of the variable
+    iid (bool) - Specify data to be simulated.
+
+    Returns
+    data (matrix) with shape [A.shape[0],m]
+
+    Example of A =  np.array([[0,0,0,0,0],
+                              [1,0,0,0,0],
+                              [0,1,0,0,0],
+                              [1,1,0,0,0],
+                              [0,0,1,0,0]])
+
+    """
+    np.random.seed(10)
+    if iid==True:
+        X = np.zeros([A.shape[0],m]).T
+        for i, row in enumerate(X):
+            for n, var in enumerate(row):
+                X[i, n] = np.random.normal(0, 0.1) + np.dot(A[n], X[i])
     else:
-        return x, z
+        X = np.zeros([A.shape[0],m]).T
+        X[0] = np.random.randn(A.shape[0])
+        for i, row in enumerate(X[:-1]):
+            if latency == False:
+                X[i+1] = A @ X[i] + np.random.normal(0,0.25,A.shape[0])
+            else: 
+                X[i+1] = A @ X[i] + np.random.normal(0,0.25,A.shape[0]) + noise[:,i]
+
+    return X.T
+
+
+def continuous_noise_fun(num, l):
+    xx = np.linspace(0,500,l)
+    noise = np.zeros((num,l))
+    for i in range(num):
+        a = 2*np.random.normal(0,0.25,size=6)
+        c = 500*(np.random.random(size=6))
+        s = 1+100*(np.random.random(size=6))
+        yy = 0*xx
+        for j in range(6):
+            yy = yy + a[j]*np.exp(-(xx-c[j])**2/s[j])
+        noise[i] = yy
+    return noise
+
 
 
 class Database:
