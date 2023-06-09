@@ -39,3 +39,26 @@ def plott_(inferred,n_past):
         axs[a].imshow(jj)
         axs[a].axis('off')
     plt.tight_layout()
+
+
+
+def plot_Inferred_3D(inferred,centers,arr):
+    """
+
+    :param inferred:
+    :param centers:
+    :param arr:
+    :return:
+    """
+    x_val,y_val,z_val = xyz_maker(inferred,centers)
+    fig = plt.figure(figsize = (10,10))
+    ax = fig.add_subplot(111,projection="3d")
+    ax.scatter(centers[:,0],centers[:,1],centers[:,2],color='red',s=10,marker='.')
+    ax.scatter(centers[arr,0],centers[arr,1],centers[arr,2],color='green',s=15,marker='*')
+    for a in range(len(x_val)):
+        ax.plot(x_val[a],y_val[a],z_val[a],lw=0.7,alpha=.7)
+    ax.grid(False)
+    ax.set_xlabel('X-axis')
+    ax.set_ylabel('Y-axis')
+    ax.set_zlabel('z-axis')
+    return fig

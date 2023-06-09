@@ -4,6 +4,11 @@ import numpy as np
 
 
 def load_data(path):
+    """
+
+    :param path:
+    :return:
+    """
     traces = np.load('path')
     return traces 
 
@@ -36,16 +41,23 @@ def simulate_data(A, m, iid = bool, latency = bool):
     else:
         X = np.zeros([A.shape[0],m]).T
         X[0] = np.random.randn(A.shape[0])
+        noise = continuous_noise_fun(A.shape[0], m)
         for i, row in enumerate(X[:-1]):
             if latency == False:
                 X[i+1] = A @ X[i] + np.random.normal(0,0.25,A.shape[0])
-            else: 
+            else:
                 X[i+1] = A @ X[i] + np.random.normal(0,0.25,A.shape[0]) + noise[:,i]
 
     return X.T
 
 
 def continuous_noise_fun(num, l):
+    """
+
+    :param num:
+    :param l:
+    :return:
+    """
     xx = np.linspace(0,500,l)
     noise = np.zeros((num,l))
     for i in range(num):
