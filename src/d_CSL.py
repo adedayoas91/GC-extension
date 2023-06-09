@@ -241,6 +241,17 @@ def analysis_GC(traces,n_perm,n_past):
 
 
 def proceed_GC(corr,pVal_corr,inv_corr,pVal_inv_corr,alpha,beta,n_past):
+    """
+
+    :param corr:
+    :param pVal_corr:
+    :param inv_corr:
+    :param pVal_inv_corr:
+    :param alpha:
+    :param beta:
+    :param n_past:
+    :return:
+    """
     sig_corr = np.multiply(corr,pVal_corr<=alpha)        # compute significant correlation matrix
     sig_inv = np.multiply(inv_corr,pVal_inv_corr<=beta)  # compute significant partial correlation matrix
     inferred = np.logical_and(sig_corr,sig_inv)          # inferred matrix
@@ -263,9 +274,16 @@ def proceed_GC(corr,pVal_corr,inv_corr,pVal_inv_corr,alpha,beta,n_past):
 
 def proceed_GC_new(corr,pVal_corr,inv_corr,pVal_inv_corr,alpha,beta,n_past):
     """
-    only select matrix at the lag speified (lag of interest)
+    Only select matrix at 1 past
+    :param corr:
+    :param pVal_corr:
+    :param inv_corr:
+    :param pVal_inv_corr:
+    :param alpha:
+    :param beta:
+    :param n_past:
+    :return:
     """
-    
     sig_corr = np.multiply(corr,pVal_corr<=alpha)        # compute significant correlation matrix
     sig_inv = np.multiply(inv_corr,pVal_inv_corr<=beta)  # compute significant partial correlation matrix
     inferred = np.logical_and(sig_corr,sig_inv)          # inferred matrix
@@ -281,6 +299,12 @@ def proceed_GC_new(corr,pVal_corr,inv_corr,pVal_inv_corr,alpha,beta,n_past):
     return new_inf  # only lag speified
 
 def residual(x,z):
+    """
+
+    :param x:
+    :param z:
+    :return:
+    """
     model = LinearRegression(fit_intercept=True)
     model.fit(z.T,x)
     coefs,intercept = model.coef_,model.intercept_
@@ -289,28 +313,16 @@ def residual(x,z):
 
 
 def vertixDegree(inferred_):
+    """
+
+    :param inferred_:
+    :return:
+    """
     nodes_out,nodes_in = {},{}
     for i in range(inferred_.shape[0]):
         nodes_out[i] = np.where(inferred_[i]!=0)[0]
         nodes_in[i] = np.where(inferred_.T[i]!=0)[0]
     return nodes_out,nodes_in
-
-
-
-def plot_Inferred_3D(inferred,centers,arr):
-    x_val,y_val,z_val = xyz_maker(inferred,centers)
-    fig = plt.figure(figsize = (10,10))
-    ax = fig.add_subplot(111,projection="3d")
-    ax.scatter(centers[:,0],centers[:,1],centers[:,2],color='red',s=10,marker='.')
-    ax.scatter(centers[arr,0],centers[arr,1],centers[arr,2],color='green',s=15,marker='*')
-    for a in range(len(x_val)):
-        ax.plot(x_val[a],y_val[a],z_val[a],lw=0.7,alpha=.7)
-    ax.grid(False)
-    ax.set_xlabel('X-axis')
-    ax.set_ylabel('Y-axis')
-    ax.set_zlabel('z-axis')
-    return fig
-
 
 
 def xyz_maker(inferred,topography):
@@ -344,6 +356,12 @@ def xyz_maker(inferred,topography):
 
 
 def confusion_matrix(inferred, A):
+    """
+
+    :param inferred:
+    :param A:
+    :return:
+    """
     TP_inf = np.sum(np.logical_and(A != 0,inferred!=0))
     FN_inf = np.sum(np.logical_and(A != 0,inferred==0))
     FP_inf = np.sum(np.logical_and(A == 0,inferred!=0))
@@ -353,6 +371,11 @@ def confusion_matrix(inferred, A):
 
 
 def apr_metrics(confusion_matrix):
+    """
+
+    :param confusion_matrix:
+    :return:
+    """
     confusion_matrix = confusion_matrix.flatten()
     accuracy = (confusion_matrix[0] + confusion_matrix[3])/(np.sum(confusion_matrix))
     precision = confusion_matrix[0]/(confusion_matrix[0]+confusion_matrix[2])
@@ -362,6 +385,13 @@ def apr_metrics(confusion_matrix):
 
 
 def repopulate(inf,traces,idx):
+    """
+
+    :param inf:
+    :param traces:
+    :param idx:
+    :return:
+    """
     inferred_ = np.zeros((traces.shape[0],traces.shape[0]))
     p = np.transpose(np.where(inf!=0))
     for i in range(len(p)):
@@ -370,6 +400,12 @@ def repopulate(inf,traces,idx):
 
 
 def distance(centers,inf):
+    """
+
+    :param centers:
+    :param inf:
+    :return:
+    """
     loc = np.transpose(np.where(inf>0))
     dist = np.zeros(len(loc))
     for i in range(len(loc)):
@@ -379,6 +415,14 @@ def distance(centers,inf):
     
 
 def counter_(out_,from_,emitter,reciever):
+    """
+
+    :param out_:
+    :param from_:
+    :param emitter:
+    :param reciever:
+    :return:
+    """
     n_out,n_in = len(out_),len(from_)
     for el in out_:
         if el in emitter:
@@ -390,6 +434,13 @@ def counter_(out_,from_,emitter,reciever):
 
 
 def proceed(traces,n_perm,n_past):
+    """
+
+    :param traces:
+    :param n_perm:
+    :param n_past:
+    :return:
+    """
     corr,pVal_corr = correlation_func(traces,n_perm,n_past)    # no conditioning on the past
     inv_corr,pVal_inv_corr = inv_correlation_func(traces,n_perm,n_past)
     return corr,pVal_corr,inv_corr,pVal_inv_corr
@@ -397,6 +448,12 @@ def proceed(traces,n_perm,n_past):
 
 
 def mat_func(A,inf):
+    """
+
+    :param A:
+    :param inf:
+    :return:
+    """
     return 40*np.logical_and(A!=0,inf!=0) + 30*np.logical_and(A==0,inf!=0) + 20*np.logical_and(A!=0,inf==0)+10*np.logical_and(A==0,inf==0)
 
 
