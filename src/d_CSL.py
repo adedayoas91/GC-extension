@@ -448,21 +448,14 @@ def proceed(traces,n_perm,n_past):
 
 
 
-def mat_func(A,inf):
-    """
-
-    :param A:
-    :param inf:
-    :return:
-    """
-    return 40*np.logical_and(A!=0,inf!=0) + 30*np.logical_and(A==0,inf!=0) + 20*np.logical_and(A!=0,inf==0)+10*np.logical_and(A==0,inf==0)
+    
 
 
-
-def modify_inv_corr(inv_corr,a):
-    # a is the percentile to be discarded
-    m = (inv_corr.max()-inv_corr.min())*a
-    return np.multiply(inv_corr>=m,inv_corr)
+    def modify_inv_corr(self, self.inv_corr, a):
+        # a is the percentile to be discarded
+        inv_corr = self.inv_corr
+        m = (inv_corr.max() - inv_corr.min()) * a
+        return np.multiply(inv_corr >= m, inv_corr)
 
 
 
@@ -471,68 +464,70 @@ def modify_inv_corr(inv_corr,a):
 
 
 
-##################################################################
-##################################################################
-# with mutual information
-##################################################################
-##################################################################
+    ##################################################################
+    ##################################################################
+    # with mutual information
+    ##################################################################
+    ##################################################################
 
-@jit(nopython=True)
-def perm_test_MI(x,y,N):
-    count,mi = 0,computeMI(x,y)
-    val = np.random.randint(30, len(x)-30,N)
-    for j in range(N):
-        x_copy = np.copy(x)
-        x_ = np.roll(x_copy,val[j])
-        mi_ = computeMI(x_,y)
-        if mi_ >= mi:
-            count+=1
-    return count/N
-
-
-
-@jit(nopython=True)
-def computeMI(x, y):
-    sum_mi = 0.0
-    x_value_list,y_value_list = np.unique(x),np.unique(y)
-    Px = np.array([len(x[x==xval])/float(len(x)) for xval in x_value_list])
-    Py = np.array([len(y[y==yval])/float(len(y)) for yval in y_value_list])
-    for i in range(len(x_value_list)):
-        if Px[i] ==0.:
-            continue
-        sy = y[x == x_value_list[i]]
-        if len(sy)== 0:
-            continue
-        pxy = np.array([len(sy[sy==yval])/float(len(y))  for yval in y_value_list]) #p(x,y)
-        t = pxy[Py>0.]/Py[Py>0.] /Px[i] # log(P(x,y)/( P(x)*P(y))
-        sum_mi += sum(pxy[t>0]*np.log2( t[t>0]) ) # sum ( P(x,y)* log(P(x,y)/( P(x)*P(y)) )
-    return sum_mi
+    @jit(nopython=True)
+    def perm_test_MI(x,y,N):
+        count,mi = 0,computeMI(x,y)
+        val = np.random.randint(30, len(x) - 30, N)
+        for j in range(N):
+            x_copy = np.copy(x)
+            x_ = np.roll(x_copy, val[j])
+            mi_ = computeMI(x_, y)
+            if mi_ >= mi:
+                count+=1
+        return count/N
 
 
 
-def MI_func(traces,n_perm,n_past):
-    data = prep_data(traces,n_past)
-    n,n_neur = traces.shape[0],data.shape[0]
-    MI,pVal_MI = np.zeros((n_neur,n)), np.zeros((n_neur,n))
-    for i in range(n_neur):
-        for j in range(n):
-            MI[i,j],pVal_MI[i,j] = computeMI(data[i,:],data[j,:]), perm_test_MI(data[i,:],data[j,:],n_perm)
-    return MI[:,:n], pVal_MI
+    @jit(nopython=True)
+    def computeMI(self, x, y):
+        sum_mi = 0.0
+        x_value_list,y_value_list = np.unique(x),np.unique(y)
+        Px = np.array([len(x[x==xval])/float(len(x)) for xval in x_value_list])
+        Py = np.array([len(y[y==yval])/float(len(y)) for yval in y_value_list])
+        for i in range(len(x_value_list)):
+            if Px[i] ==0.:
+                continue
+            sy = y[x == x_value_list[i]]
+            if len(sy)== 0:
+                continue
+            pxy = np.array([len(sy[sy==yval])/float(len(y))  for yval in y_value_list]) #p(x,y)
+            t = pxy[Py>0.]/Py[Py>0.] /Px[i] # log(P(x,y)/( P(x)*P(y))
+            sum_mi += sum(pxy[t>0]*np.log2( t[t>0]) ) # sum ( P(x,y)* log(P(x,y)/( P(x)*P(y)) )
+        return sum_mi
 
 
 
-def analysis_GC_MI(traces,n_perm,n_past):
-    data = prep_data(traces,n_past)
-    n, n_neur = traces.shape[0], data.shape[0]
-    MI,pVal_MI = MI_func(traces,n_perm,n_past)
-    CMI,pVal_CMI =np.zeros((n_neur,n)),np.zeros((n_neur,n))
-    for i in tqdm(range(0,n_neur)):
-        for j in range(0,n):
-            x,y = data[i,:], data[j,:],
-            z = conditioning_set(traces,n_past,i,j)
-            x_res,y_res = residual(x,z),residual(y,z)
-            CMI[i,j],pVal_CMI[i,j] = computeMI(x_res,y_res),perm_test_MI(x_res,y_res,n_perm)
-    return MI,pVal_MI,CMI,pVal_CMI
+    def MI_func(self):
+        traces,n_perm,n_past = self.traces, self.number_of_perm, self.number_of_pasts
+        data = prep_data(traces,n_past)
+        n,n_neur = traces.shape[0],data.shape[0]
+        MI,pVal_MI = np.zeros((n_neur,n)), np.zeros((n_neur,n))
+        for i in range(n_neur):
+            for j in range(n):
+                MI[i,j],pVal_MI[i,j] = computeMI(data[i,:],data[j,:]), perm_test_MI(data[i,:],data[j,:],n_perm)
+        return MI[:,:n], pVal_MI
+
+
+
+    def analysis_GC_MI(self):
+        traces,n_perm,n_past = self.traces, self.number_of_perm, self.number_of_pasts
+        data = self.prep_data(traces,n_past)
+        n, n_neur = traces.shape[0], data.shape[0]
+        MI,pVal_MI = MI_func(traces,n_perm,n_past)
+        CMI,pVal_CMI =np.zeros((n_neur,n)),np.zeros((n_neur,n))
+        for i in tqdm(range(0,n_neur)):
+            for j in range(0,n):
+                x,y = data[i,:], data[j,:],
+                z = conditioning_set(traces,n_past,i,j)
+                x_res,y_res = residual(x,z),residual(y,z)
+                CMI[i,j],pVal_CMI[i,j] = computeMI(x_res,y_res),perm_test_MI(x_res,y_res,n_perm)
+        return MI,pVal_MI,CMI,pVal_CMI
 
 
 ##################################################################
