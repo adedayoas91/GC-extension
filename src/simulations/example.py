@@ -17,3 +17,18 @@ A = adj_mtx(n_neur)
 # simulate data 
 noise = continuous_noise_fun(n_neur, l)
 X = simulate_data()
+
+
+def Simulations():
+    def __init__():
+        self.
+
+        
+    def mat_func(self, A, inf):
+        """
+        For plotting results with different colors for metrics in the connfusion matrix 
+        :param A:
+        :param inf:
+        :return:
+        """
+        return 40*np.logical_and(A!=0,inf!=0) + 30*np.logical_and(A==0,inf!=0) + 20*np.logical_and(A!=0,inf==0)+10*np.logical_and(A==0,inf==0)
