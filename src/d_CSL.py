@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import os
+from typing import Self
 import numpy as np
 from sklearn.linear_model import LinearRegression
 import statsmodels.api as sm
@@ -21,167 +22,150 @@ from tqdm.notebook import tqdm
 
 
 def Gc_star():
-    def __init__(self, data, n_perm, n_pasts):
+    def __init__(self, data, n_perm, n_pasts, iid):
         self.number_of_perm = n_perm
         self.number_of_lags = n_pasts
         self.traces = data
-
+        self.temporal = True
         
     def dependence_test_method(self, dependence_test_choice):
         self.dependence_test = dependence_test_choice
 
     
     def load_data(file_name):
-    """
-    File name should be given in string with the path to where it is located.
-    :param file_name: the name of file containing data. 
-    :return: traces (loaded data)
-    """
-    traces = np.load('file_name')
-    return self.traces = traces
+        """
+        File name should be given in string with the path to where it is located.
+        :param file_name: the name of file containing data. 
+        :return: traces (loaded data)
+        """
+        traces = np.load('file_name')
+        return self.traces = traces
 
-@njit
-def cross_corr(x, y, n_lags):
-    """Returns the absolute values of cross correlation of 2 variables with any specified lag window
+    @njit
+    def cross_corr(self, x, y):
+        """Returns the absolute values of cross correlation of 2 variables with any specified lag window
 
-    Parameters:
-    x (array like): array of a variable of any length
-    y (array like): array of a variable of same length as x
-    n_lags (int): lag window size (function takes both positive and negative lag of the same window)
+        Parameters:
+        x (array like): array of a variable of any length
+        y (array like): array of a variable of same length as x
+        n_lags (int): lag window size (function takes both positive and negative lag of the same window)
 
-    Returns:
-    cross correlation of 2 variable (array like), each entry of the array, the correlationat each lag window.
-
-   """
-
-    lags = np.arange(-n_lags+1, n_lags)
-    corr_coef = np.zeros(len(lags))
-    for i in range(len(corr_coef)):
-        if lags[i]< 0:
-            corr_coef[i] = np.corrcoef(x[:-np.abs(lags[i])], y[np.abs(lags[i]):])[1,0]
-        elif lags[i]==0:
-            corr_coef[i] = np.corrcoef(x, y)[1,0]
-        else:
-            corr_coef[i] = np.corrcoef(x[lags[i]:], y[:-lags[i]])[1,0]
-
-    return np.abs(corr_coef)
-
-
-
-def cross_correlation(data,n_perm,n_lags):
-    """Computes correlation of a given data both at zero and a desired lag window. Takes both positive and negative lags.
-
-    Parameters:
-    data (array like, matrix): array of a variable of any length. (Variables are aligned on the rows)
-    n_lags (int): desired lag window size to be taken.
-
-    Returns:
-    corr_coef_no_lag (array like, matrix): Correlation matrix of data at zero lags
-    max_ccoef_mat (array like, matrix): Correlation matrix of data at a specified maximum lag window (n_lags)
-    max_corr_lag (array like, matrix): Matrix of lag at which maximum correlation occured.
+        Returns:
+        cross correlation of 2 variable (array like), each entry of the array, the correlationat each lag window.
 
     """
 
-    # cross correlation at zero lag using the np.corrcoef()
-    corr_coef = np.abs(np.corrcoef(data))
-    pVal_corr, pVal_Xcorr = np.zeros_like(corr_coef),np.zeros_like(corr_coef)
-    
-    ##########################################################
-    # computing cross correlation of all neuron with lag of 20
-    # selected the max correlations at which ever lag it occurs
-    ##########################################################
-    n_var,max_ccoef_mat,max_corr_lag = corr_coef.shape[0],np.zeros_like(corr_coef),np.zeros_like(corr_coef)
-    lags = np.arange(-n_lags+1,n_lags).astype(int)
-    for n in range(0,n_var):
-        for i in range(n,n_var):
-            pVal_corr[n,i] = perm_test_shift(data[n,:],data[i,:],n_perm)
-            pVal_corr[i,n] = pVal_corr[n,i]
-            ccor = cross_corr(data[n,:], data[i,:],n_lags)
-            max_ccoef_mat[n,i] = np.max(ccor)
-            max_ccoef_mat[i,n] = max_ccoef_mat[n,i]
-            
-            max_corr_lag[n,i] = lags[np.argmax(ccor)]
-            max_corr_lag[i,n]= max_corr_lag[n,i]
-            
-            ## Computing p_Values of cross correlation 
-            l = lags[np.argmax(ccor)]
-            if l < 0:
-                pVal_Xcorr[n,i] = perm_test_shift(data[n,:-np.abs(l)],data[i,np.abs(l):],n_perm)
-            elif l==0:
-                pVal_Xcorr[n,i] = perm_test_shift(data[n,:],data[i,:],n_perm)
+        lags = np.arange(-, self.n_pasts+1, , self.n_pasts)
+        corr_coef = np.zeros(len(lags))
+        for i in range(len(corr_coef)):
+            if lags[i]< 0:
+                corr_coef[i] = np.corrcoef(x[:-np.abs(lags[i])], y[np.abs(lags[i]):])[1,0]
+            elif lags[i]==0:
+                corr_coef[i] = np.corrcoef(x, y)[1,0]
             else:
-                pVal_Xcorr[n,i] = perm_test_shift(data[n,l:],data[i,:-l],n_perm)
-            pVal_Xcorr[i,n] = pVal_Xcorr[n,i]
-    max_corr_lag = max_corr_lag.astype(int)
+                corr_coef[i] = np.corrcoef(x[lags[i]:], y[:-lags[i]])[1,0]
 
-    return corr_coef,pVal_corr,max_ccoef_mat,max_corr_lag,pVal_Xcorr
+        return np.abs(corr_coef)
 
 
 
-@jit(nopython=True)
-def perm_test(x, y, shuffle):
-    """
-    Computes p_value of correlation of two iid generated variables.
-    Args:
-        x: (array like, vector): Realisation of a variable x
-        y: (array like, vector): Realisation of a variable y
-        shuffle: Number of permutations
-    Returns: p_value
-    """
-    count, corr_1 = 0,np.corrcoef(x,y)[1,0]
-    for j in range(shuffle):
-        x_copy = np.copy(x)
-        np.random.shuffle(x_copy)
-        corr_2 = np.corrcoef(x_copy,y)[1,0]
-        if np.abs(corr_2) >= np.abs(corr_1):
-            count+=1
-    return count/shuffle
+# def cross_correlation(data,n_perm,n_lags):
+#     """Computes correlation of a given data both at zero and a desired lag window. Takes both positive and negative lags.
+
+#     Parameters:
+#     data (array like, matrix): array of a variable of any length. (Variables are aligned on the rows)
+#     n_lags (int): desired lag window size to be taken.
+
+#     Returns:
+#     corr_coef_no_lag (array like, matrix): Correlation matrix of data at zero lags
+#     max_ccoef_mat (array like, matrix): Correlation matrix of data at a specified maximum lag window (n_lags)
+#     max_corr_lag (array like, matrix): Matrix of lag at which maximum correlation occured.
+
+#     """
+
+#     # cross correlation at zero lag using the np.corrcoef()
+#     corr_coef = np.abs(np.corrcoef(data))
+#     pVal_corr, pVal_Xcorr = np.zeros_like(corr_coef),np.zeros_like(corr_coef)
+    
+#     ##########################################################
+#     # computing cross correlation of all neuron with lag of 20
+#     # selected the max correlations at which ever lag it occurs
+#     ##########################################################
+#     n_var,max_ccoef_mat,max_corr_lag = corr_coef.shape[0],np.zeros_like(corr_coef),np.zeros_like(corr_coef)
+#     lags = np.arange(-n_lags+1,n_lags).astype(int)
+#     for n in range(0,n_var):
+#         for i in range(n,n_var):
+#             pVal_corr[n,i] = perm_test_shift(data[n,:],data[i,:],n_perm)
+#             pVal_corr[i,n] = pVal_corr[n,i]
+#             ccor = cross_corr(data[n,:], data[i,:],n_lags)
+#             max_ccoef_mat[n,i] = np.max(ccor)
+#             max_ccoef_mat[i,n] = max_ccoef_mat[n,i]
+            
+#             max_corr_lag[n,i] = lags[np.argmax(ccor)]
+#             max_corr_lag[i,n]= max_corr_lag[n,i]
+            
+#             ## Computing p_Values of cross correlation 
+#             l = lags[np.argmax(ccor)]
+#             if l < 0:
+#                 pVal_Xcorr[n,i] = perm_test_shift(data[n,:-np.abs(l)],data[i,np.abs(l):],n_perm)
+#             elif l==0:
+#                 pVal_Xcorr[n,i] = perm_test_shift(data[n,:],data[i,:],n_perm)
+#             else:
+#                 pVal_Xcorr[n,i] = perm_test_shift(data[n,l:],data[i,:-l],n_perm)
+#             pVal_Xcorr[i,n] = pVal_Xcorr[n,i]
+#     max_corr_lag = max_corr_lag.astype(int)
+
+#     return corr_coef,pVal_corr,max_ccoef_mat,max_corr_lag,pVal_Xcorr
 
 
 
-@jit(nopython=True)
-def perm_test_shift(x, y,shuffle):
-    """
-        Computes p_value of correlation of two time series.
+    @jit(nopython=True)
+    def perm_test(self, x, y):
+        """
+        Computes p_value of correlation of two iid generated variables.
         Args:
-            x: (array like, vector): Time series x
+            x: (array like, vector): Realisation of a variable x
             y: (array like, vector): Realisation of a variable y
             shuffle: Number of permutations
         Returns: p_value
         """
-    count,corr_1 = 0,np.corrcoef(x,y)[1,0]
-    val = np.random.randint(30,len(x)-30, shuffle)     # change 4 back to 30 and len(x)-30
-    for j in range(shuffle):
-        x_copy = np.copy(x)
-        x_ = np.roll(x_copy,val[j])
-        corr_2 = np.corrcoef(x_,y)[1,0]
-        if np.abs(corr_2) >= np.abs(corr_1):
-            count+=1
-    return count/shuffle
+        
+        count, corr_1 = 0,np.corrcoef(x,y)[1,0]
+        for j in range(self.number_of_perm):
+            if not self.temporal: 
+                x_copy = np.copy(x)
+                np.random.shuffle(x_copy)
+            else:
+                x_ = np.roll(x_copy,val[j])
+            corr_2 = np.corrcoef(x_copy,y)[1,0]
+            if np.abs(corr_2) >= np.abs(corr_1):
+                count+=1
+        return count/shuffle
 
 
 
-def prep_data(X, nn):
-    """
-    Creates shifted versions of original data based on the number of pasts nn required.
-    Concatenate the shifted arrays and return the new data.
-    Args:
-        X: (array-like, shape [# of variable X # of samples]): Raw data
-        nn: (int) number of shifted version of data required
 
-    Returns: shifted data
+    def prep_data(self):
+        """
+        Creates shifted versions of original data based on the number of pasts nn required.
+        Concatenate the shifted arrays and return the new data.
+        Args:
+            X: (array-like, shape [# of variable X # of samples]): Raw data
+            nn: (int) number of shifted version of data required
 
-    """
+        Returns: shifted data
 
-    if nn == None or nn == 0:
-        X_ = X
-        return X_
-    else:
-        X_ = X[:,(nn):]
-        for i in range(nn):
-            idx1, idx2 = nn-1-i,-i-1
-            X_ = np.r_[X_, X[:,idx1:idx2]]
-        return X_
+        """
+        nn = self.number_of_lags
+        X = self.traces
+        if nn == None or nn == 0:
+            return X
+        else:
+            X_ = X[:,(nn):]
+            for i in range(nn):
+                idx1, idx2 = nn-1-i,-i-1
+                X_ = np.r_[X_, X[:,idx1:idx2]]
+            return X_
 
         
 
