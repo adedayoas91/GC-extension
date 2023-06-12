@@ -20,7 +20,25 @@ from tqdm.notebook import tqdm
 ###################################################################
 
 
+def Gc_star():
+    def __init__(self, data, n_perm, n_pasts):
+        self.number_of_perm = n_perm
+        self.number_of_lags = n_pasts
+        self.traces = data
 
+        
+    def dependence_test_method(self, dependence_test_choice):
+        self.dependence_test = dependence_test_choice
+
+    
+    def load_data(file_name):
+    """
+
+    :param file_name: the name of file containing data. 
+    :return: traces (loaded data)
+    """
+    traces = np.load('file_name')
+    return self.traces = traces
 
 @njit
 def cross_corr(x, y, n_lags):
@@ -186,7 +204,7 @@ def adj_mtx(n_neur):
     return A
 
 
-def correlation_func(traces,n_perm,n_past):
+def correlation_func(traces,n_perm,n_past):   # naame compute_dependence_with_corelation()
     data = prep_data(traces,n_past)
     corr,n,n_neur = np.abs(np.corrcoef(data)),traces.shape[0],data.shape[0]
     pVal_corr = np.zeros((n_neur,n))
@@ -196,7 +214,7 @@ def correlation_func(traces,n_perm,n_past):
     return corr[:,:n], pVal_corr
 
 
-def inv_correlation_func(traces,n_perm,n_past):
+def inv_correlation_func(traces,n_perm,n_past):  # compute_conditional_dependence_with_corelation()
     data = prep_data(traces,n_past)
     n_neur=traces.shape[0]
     inv_corr, pVal_inv_corr = np.zeros((data.shape[0],n_neur)), np.zeros((data.shape[0],n_neur))
@@ -209,7 +227,15 @@ def inv_correlation_func(traces,n_perm,n_past):
 
 
 
-def conditioning_set(X,n_past,i,j):
+def conditioning_set(X, n_past, i, j, ):
+    """
+    Identiffies the varriables in the conditioning set for granger causality implementation.
+    Args:
+        traces: (array-like, matrices shape [# of variables X samples]) Data
+        n_perm: (int) number of permutations for p_value computations
+        n_past: (int) number of pasts desired
+    Returns: correlation, correspondomg p-Values, inverse correlation and the p-valeus
+    """
     n = X.shape[0]
     k, data = i//n, prep_data(X,n_past)
     z_,y_ = np.delete(data,np.r_[np.arange(k*n),[i]],axis=0), prep_data(X[j,:].reshape((1,X.shape[1])),n_past)

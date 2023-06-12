@@ -16,4 +16,4 @@ A = adj_mtx(n_neur)
 
 # simulate data 
 noise = continuous_noise_fun(n_neur, l)
-X = simulate_data
+X = simulate_data()
