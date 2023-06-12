@@ -8,7 +8,7 @@ from d_CSL import *
 
 # select an integer `n_neur` and `l` to denote the number of variables and length of the variabales
 n_neur = int(input())
-l = int(innput())
+l = int(input())
 
 # genderate a random ground truth conneectivity matrix A
 
