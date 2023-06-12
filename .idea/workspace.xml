@@ -5,11 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d9108641-58ab-47d0-8249-20deea5d7677" name="Changes" comment="Updated Refactoring repo">
-      <change beforePath="$PROJECT_DIR$/.idea/GC-Extension.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/GC-Extension.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/PlottingTopography.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/PlottingTopography.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/d_CSL.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/d_CSL.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/dataload.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/dataload.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -32,9 +28,10 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "WebServerToolWindowFactoryState": "false",
-    "git-widget-placeholder": "develop",
+    "git-widget-placeholder": "deveelop__with__class",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -52,7 +49,20 @@
       <option name="presentableId" value="Default" />
       <updated>1686244776842</updated>
       <workItem from="1686244778797" duration="48000" />
+      <workItem from="1686496240421" duration="42000" />
+      <workItem from="1686576788575" duration="1044000" />
     </task>
     <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
 </project>
