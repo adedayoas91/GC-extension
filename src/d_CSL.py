@@ -32,14 +32,14 @@ def Gc_star():
         self.dependence_test = dependence_test_choice
 
     
-    def load_data(file_name):
+    def load_data(self, file_name):
         """
         File name should be given in string with the path to where it is located.
         :param file_name: the name of file containing data. 
         :return: traces (loaded data)
         """
         traces = np.load('file_name')
-        return self.traces = traces
+        self.traces = traces
 
     @njit
     def cross_corr(self, x, y):
@@ -54,8 +54,8 @@ def Gc_star():
         cross correlation of 2 variable (array like), each entry of the array, the correlationat each lag window.
 
     """
-
-        lags = np.arange(-, self.n_pasts+1, , self.n_pasts)
+        n_lags = self.number_of_pasts 
+        lags = np.arange(-n_lags+1, n_lags)
         corr_coef = np.zeros(len(lags))
         for i in range(len(corr_coef)):
             if lags[i]< 0:
@@ -69,53 +69,55 @@ def Gc_star():
 
 
 
-# def cross_correlation(data,n_perm,n_lags):
-#     """Computes correlation of a given data both at zero and a desired lag window. Takes both positive and negative lags.
+    def cross_correlation(self):
+        """Computes correlation of a given data both at zero and a desired lag window. Takes both positive and negative lags.
 
-#     Parameters:
-#     data (array like, matrix): array of a variable of any length. (Variables are aligned on the rows)
-#     n_lags (int): desired lag window size to be taken.
+        Parameters:
+        data (array like, matrix): array of a variable of any length. (Variables are aligned on the rows)
+        n_lags (int): desired lag window size to be taken.
 
-#     Returns:
-#     corr_coef_no_lag (array like, matrix): Correlation matrix of data at zero lags
-#     max_ccoef_mat (array like, matrix): Correlation matrix of data at a specified maximum lag window (n_lags)
-#     max_corr_lag (array like, matrix): Matrix of lag at which maximum correlation occured.
+        Returns:
+        corr_coef_no_lag (array like, matrix): Correlation matrix of data at zero lags
+        max_ccoef_mat (array like, matrix): Correlation matrix of data at a specified maximum lag window (n_lags)
+        max_corr_lag (array like, matrix): Matrix of lag at which maximum correlation occured.
 
-#     """
+        """
 
-#     # cross correlation at zero lag using the np.corrcoef()
-#     corr_coef = np.abs(np.corrcoef(data))
-#     pVal_corr, pVal_Xcorr = np.zeros_like(corr_coef),np.zeros_like(corr_coef)
-    
-#     ##########################################################
-#     # computing cross correlation of all neuron with lag of 20
-#     # selected the max correlations at which ever lag it occurs
-#     ##########################################################
-#     n_var,max_ccoef_mat,max_corr_lag = corr_coef.shape[0],np.zeros_like(corr_coef),np.zeros_like(corr_coef)
-#     lags = np.arange(-n_lags+1,n_lags).astype(int)
-#     for n in range(0,n_var):
-#         for i in range(n,n_var):
-#             pVal_corr[n,i] = perm_test_shift(data[n,:],data[i,:],n_perm)
-#             pVal_corr[i,n] = pVal_corr[n,i]
-#             ccor = cross_corr(data[n,:], data[i,:],n_lags)
-#             max_ccoef_mat[n,i] = np.max(ccor)
-#             max_ccoef_mat[i,n] = max_ccoef_mat[n,i]
-            
-#             max_corr_lag[n,i] = lags[np.argmax(ccor)]
-#             max_corr_lag[i,n]= max_corr_lag[n,i]
-            
-#             ## Computing p_Values of cross correlation 
-#             l = lags[np.argmax(ccor)]
-#             if l < 0:
-#                 pVal_Xcorr[n,i] = perm_test_shift(data[n,:-np.abs(l)],data[i,np.abs(l):],n_perm)
-#             elif l==0:
-#                 pVal_Xcorr[n,i] = perm_test_shift(data[n,:],data[i,:],n_perm)
-#             else:
-#                 pVal_Xcorr[n,i] = perm_test_shift(data[n,l:],data[i,:-l],n_perm)
-#             pVal_Xcorr[i,n] = pVal_Xcorr[n,i]
-#     max_corr_lag = max_corr_lag.astype(int)
+        # cross correlation at zero lag using the np.corrcoef()
 
-#     return corr_coef,pVal_corr,max_ccoef_mat,max_corr_lag,pVal_Xcorr
+        data, n_perm, n_lags = self.traces, self.number_of_perm, self.number_of_pasts
+        corr_coef = np.abs(np.corrcoef(data))
+        pVal_corr, pVal_Xcorr = np.zeros_like(corr_coef),np.zeros_like(corr_coef)
+        
+        ##########################################################
+        # computing cross correlation of all neuron with lag of 20
+        # selected the max correlations at which ever lag it occurs
+        ##########################################################
+        n_var,max_ccoef_mat,max_corr_lag = corr_coef.shape[0],np.zeros_like(corr_coef),np.zeros_like(corr_coef)
+        lags = np.arange(-n_lags+1,n_lags).astype(int)
+        for n in range(0,n_var):
+            for i in range(n,n_var):
+                pVal_corr[n,i] = self.perm_test(data[n,:],data[i,:],n_perm)
+                pVal_corr[i,n] = pVal_corr[n,i]
+                ccor = cross_corr(data[n,:], data[i,:],n_lags)
+                max_ccoef_mat[n,i] = np.max(ccor)
+                max_ccoef_mat[i,n] = max_ccoef_mat[n,i]
+                
+                max_corr_lag[n,i] = lags[np.argmax(ccor)]
+                max_corr_lag[i,n]= max_corr_lag[n,i]
+                
+                ## Computing p_Values of cross correlation 
+                l = lags[np.argmax(ccor)]
+                if l < 0:
+                    pVal_Xcorr[n,i] = perm_test_shift(data[n,:-np.abs(l)],data[i,np.abs(l):],n_perm)
+                elif l==0:
+                    pVal_Xcorr[n,i] = perm_test_shift(data[n,:],data[i,:],n_perm)
+                else:
+                    pVal_Xcorr[n,i] = perm_test_shift(data[n,l:],data[i,:-l],n_perm)
+                pVal_Xcorr[i,n] = pVal_Xcorr[n,i]
+        max_corr_lag = max_corr_lag.astype(int)
+
+        return corr_coef,pVal_corr,max_ccoef_mat,max_corr_lag,pVal_Xcorr
 
 
 
@@ -129,14 +131,14 @@ def Gc_star():
             shuffle: Number of permutations
         Returns: p_value
         """
-        
+        shuffle = self.number_of_perm
         count, corr_1 = 0,np.corrcoef(x,y)[1,0]
         for j in range(self.number_of_perm):
             if not self.temporal: 
                 x_copy = np.copy(x)
                 np.random.shuffle(x_copy)
             else:
-                x_ = np.roll(x_copy,val[j])
+                x_ = np.roll(x_copy, np.random.randint(30, len(x)), 1)
             corr_2 = np.corrcoef(x_copy,y)[1,0]
             if np.abs(corr_2) >= np.abs(corr_1):
                 count+=1
@@ -168,118 +170,107 @@ def Gc_star():
             return X_
 
         
-
-def adj_mtx(n_neur):
-    """
-    Creates a random ground truth connectivity matrix for simulating data.
-    Args:
-        n_neu: (int) number of variables expected in data.
-
-    Returns: shifted data
-
-    """
-    A = np.random.choice([0,0.5,0.85], p=[0.9,0.03,0.07], size=(n_neur,n_neur)) ### A is not the adjacency matrix in the typical sense
-    A = 0.5*(A)
-    A[0:10,0:10] =np.zeros((10,10))
-    for n, i in enumerate(A):
-        A[n][n]=1
-    for n, i in enumerate(A):
-        A[n]=A[n]/np.sum(A[n])
-    return A
+    def correlation_func(self):   # naame compute_dependence_with_corelation()
+        traces,n_perm,n_past = self.traces, self.number_of_perm, self.number_of_pasts
+        data = prep_data(traces,n_past)
+        corr,n,n_neur = np.abs(np.corrcoef(data)),traces.shape[0],data.shape[0]
+        pVal_corr = np.zeros((n_neur,n))
+        for i in range(n_neur):
+            for j in range(n):
+                pVal_corr[i,j] = perm_test(data[i,:],data[j,:],n_perm)
+        return corr[:,:n], pVal_corr
 
 
-def correlation_func(traces,n_perm,n_past):   # naame compute_dependence_with_corelation()
-    data = prep_data(traces,n_past)
-    corr,n,n_neur = np.abs(np.corrcoef(data)),traces.shape[0],data.shape[0]
-    pVal_corr = np.zeros((n_neur,n))
-    for i in range(n_neur):
-        for j in range(n):
-            pVal_corr[i,j] = perm_test_shift(data[i,:],data[j,:],n_perm)
-    return corr[:,:n], pVal_corr
-
-
-def inv_correlation_func(traces,n_perm,n_past):  # compute_conditional_dependence_with_corelation()
-    data = prep_data(traces,n_past)
-    n_neur=traces.shape[0]
-    inv_corr, pVal_inv_corr = np.zeros((data.shape[0],n_neur)), np.zeros((data.shape[0],n_neur))
-    for i in range(0,data.shape[0]):
-        for j in range(0,n_neur):
-            x,y,z = data[i],data[j],np.delete(data,[i,j],axis=0)
-            x_res,y_res = residual(x,z),residual(y,z)
-            inv_corr[i,j],pVal_inv_corr[i,j] = np.abs(np.corrcoef(x_res,y_res)[1,0]), perm_test_shift(x_res,y_res,n_perm)
-    return inv_corr, pVal_inv_corr
+    def inv_correlation_func(self):  # compute_conditional_dependence_with_corelation()
+        traces, n_perm, n_past = self.traces, self.number_of_perm, self.number_of_pasts
+        data = prep_data(traces,n_past)
+        n_neur=traces.shape[0]
+        inv_corr, pVal_inv_corr = np.zeros((data.shape[0],n_neur)), np.zeros((data.shape[0],n_neur))
+        for i in range(0,data.shape[0]):
+            for j in range(0,n_neur):
+                x,y,z = data[i], data[j], np.delete(data,[i,j],axis=0)
+                x_res,y_res = residual(x,z),residual(y,z)
+                inv_corr[i,j] = np.abs(np.corrcoef(x_res,y_res)[1,0])
+                pVal_inv_corr[i,j] = perm_test(x_res,y_res,n_perm)
+        return inv_corr, pVal_inv_corr
 
 
 
-def conditioning_set(X, n_past, i, j, ):
-    """
-    Identiffies the varriables in the conditioning set for granger causality implementation.
-    Args:
-        traces: (array-like, matrices shape [# of variables X samples]) Data
-        n_perm: (int) number of permutations for p_value computations
-        n_past: (int) number of pasts desired
-    Returns: correlation, correspondomg p-Values, inverse correlation and the p-valeus
-    """
-    n = X.shape[0]
-    k, data = i//n, prep_data(X,n_past)
-    z_,y_ = np.delete(data,np.r_[np.arange(k*n),[i]],axis=0), prep_data(X[j,:].reshape((1,X.shape[1])),n_past)
-    z = np.r_[z_,y_[1:k]]
-    return z
+    def conditioning_set(self, i, j):
+        """
+        Identiffies the varriables in the conditioning set for granger causality implementation.
+        Args:
+            traces: (array-like, matrices shape [# of variables X samples]) Data
+            n_perm: (int) number of permutations for p_value computations
+            n_past: (int) number of pasts desired
+        Returns: correlation, correspondomg p-Values, inverse correlation and the p-valeus
+        """
+        X, n_past = self.traces, self.number_of_pasts
+        n = X.shape[0]
+        k, data = i//n, prep_data(X, n_past)
+        z_ = np.delete(data, np.r_[np.arange(k * n), [i]], axis=0)
+        y_ = prep_data(X[j, :].reshape((1, X.shape[1])), n_past)
+        z = np.r_[z_, y_[1:k]]
+        return z
 
 
 
-#implementing GC
-def analysis_GC(traces,n_perm,n_past):
-    """
-    Performs the analysis
-    Args:
-        traces: (array-like, matrices shape [# of variables X samples]) Data
-        n_perm: (int) number of permutations for p_value computations
-        n_past: (int) number of pasts desired
-    Returns: correlation, correspondomg p-Values, inverse correlation and the p-valeus
-    """
-    data = prep_data(traces,n_past)
-    n, n_neur = traces.shape[0], data.shape[0]
-    corr,pVal_corr = correlation_func(traces,n_perm,n_past)
-    inv_corr,pVal_inv_corr =np.zeros((n_neur,n)),np.zeros((n_neur,n))
-    for i in range(0,n_neur):
-        for j in range(0,n):
-            x,y,z = data[i],data[j],conditioning_set(traces,n_past,i,j)             
-            x_res,y_res = residual(x,z),residual(y,z)
-            inv_corr[i,j],pVal_inv_corr[i,j] = np.abs(np.corrcoef(x_res,y_res)[1,0]),perm_test_shift(x_res,y_res,n_perm)
-    return corr,pVal_corr,inv_corr,pVal_inv_corr
+    #implementing GC
+    def analysis_GC(self):
+        """
+        Performs the analysis
+        Args:
+            traces: (array-like, matrices shape [# of variables X samples]) Data
+            n_perm: (int) number of permutations for p_value computations
+            n_past: (int) number of pasts desired
+        Returns: correlation, correspondomg p-Values, inverse correlation and the p-valeus
+        """
+        traces,n_perm,n_past = self.traces, self.number_of_perm, self.number_of_pasts
+        data = self.prep_data(traces, n_past)
+        n, n_neur = traces.shape[0], data.shape[0]
+        corr,pVal_corr = self.correlation_func(traces,n_perm,n_past)
+        inv_corr,pVal_inv_corr =np.zeros((n_neur,n)), np.zeros((n_neur, n))
+        for i in range(0, n_neur):
+            for j in range(0, n):
+                x, y, z = data[i],d ata[j], conditioning_set(traces, n_past, i, j)             
+                x_res,y_res = self.residual(x, z), self.residual(y, z)
+                inv_corr[i, j] = np.abs(np.corrcoef(x_res, y_res)[1, 0])
+                pVal_inv_corr[i, j] = self.perm_test(x_res, y_res, n_perm)
+        self.corr = corr 
+        self.corr = corr
+        return corr,pVal_corr, inv_corr,pVal_inv_corr
 
 
-def proceed_GC(corr,pVal_corr,inv_corr,pVal_inv_corr,alpha,beta,n_past):
-    """
+    def proceed_GC(self, corr,pVal_corr,inv_corr,pVal_inv_corr,alpha,beta,n_past):
+        """
 
-    :param corr:
-    :param pVal_corr:
-    :param inv_corr:
-    :param pVal_inv_corr:
-    :param alpha:
-    :param beta:
-    :param n_past:
-    :return:
-    """
-    sig_corr = np.multiply(corr,pVal_corr<=alpha)        # compute significant correlation matrix
-    sig_inv = np.multiply(inv_corr,pVal_inv_corr<=beta)  # compute significant partial correlation matrix
-    inferred = np.logical_and(sig_corr,sig_inv)          # inferred matrix
-    plott_(inferred,n_past)   
-    b, all_, n_neur = 0, [], inferred.shape[1]
-    
-    # merging results for the GC order used
-    for a in range(n_past+1):     
-        all_.append(inferred[a*n_neur:(a+1)*n_neur,b*n_neur:(b+1)*n_neur])
-    nn, new_inf = n_past+1, all_[0]
-    for i in range(1,n_past):        # use 'nn' if all matrices are to be used, here i take out the last one
-        new_inf = np.logical_or(new_inf,all_[i])
-#     new_inf = np.multiply(corr[:n_neur,:],new_inf)   # multiplied with correlation to determine the strength of connections
-#     np.fill_diagonal(new_inf,0)      # self connectivity removed
-    plt.figure()
-    plt.imshow(new_inf,vmin=0,vmax=1)
-#     plt.colorbar()
-    return new_inf # take into account variations in lags  
+        :param corr:
+        :param pVal_corr:
+        :param inv_corr:
+        :param pVal_inv_corr:
+        :param alpha:
+        :param beta:
+        :param n_past:
+        :return:
+        """
+        sig_corr = np.multiply(corr,pVal_corr<=alpha)        # compute significant correlation matrix
+        sig_inv = np.multiply(inv_corr,pVal_inv_corr<=beta)  # compute significant partial correlation matrix
+        inferred = np.logical_and(sig_corr,sig_inv)          # inferred matrix
+        plott_(inferred,n_past)   
+        b, all_, n_neur = 0, [], inferred.shape[1]
+        
+        # merging results for the GC order used
+        for a in range(n_past+1):     
+            all_.append(inferred[a*n_neur:(a+1)*n_neur,b*n_neur:(b+1)*n_neur])
+        nn, new_inf = n_past+1, all_[0]
+        for i in range(1,n_past):        # use 'nn' if all matrices are to be used, here i take out the last one
+            new_inf = np.logical_or(new_inf,all_[i])
+    #     new_inf = np.multiply(corr[:n_neur,:],new_inf)   # multiplied with correlation to determine the strength of connections
+    #     np.fill_diagonal(new_inf,0)      # self connectivity removed
+        plt.figure()
+        plt.imshow(new_inf,vmin=0,vmax=1)
+    #     plt.colorbar()
+        return new_inf # take into account variations in lags  
 
 
 def proceed_GC_new(corr,pVal_corr,inv_corr,pVal_inv_corr,alpha,beta,n_past):
