@@ -33,7 +33,7 @@ def Gc_star():
     
     def load_data(file_name):
     """
-
+    File name should be given in string with the path to where it is located.
     :param file_name: the name of file containing data. 
     :return: traces (loaded data)
     """
