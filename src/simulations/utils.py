@@ -5,10 +5,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from d_CSL import *
+from dataload import *
 
-# select an integer `n_neur` and `l` to denote the number of variables and length of the variabales
-n_neur = int(input())
-l = int(input())
+# genderate a random ground truth conneectivity matrix A
+
+A = adj_mtx(n_neur)
+
+# simulate data 
+noise = continuous_noise_fun(n_neur, l)
+X = simulate_data()
 
 # genderate a random ground truth conneectivity matrix A
 
@@ -20,8 +25,19 @@ X = simulate_data()
 
 
 def Simulations():
-    def __init__():
-        self.
+    def __init__(self, data, n_perm, n_pasts, temporal):
+        self.number_of_perm = n_perm
+        self.number_of_lags = n_pasts
+        self.traces = data
+        self.temporal = True
+
+    def get_number_of_variables(self):
+        return self.number_of_variables
+
+    
+
+    def simulate_data(self, len_of_variables):
+        self.simulate_data()
 
         
     def mat_func(self, A, inf):

@@ -22,7 +22,7 @@ from tqdm.notebook import tqdm
 
 
 def Gc_star():
-    def __init__(self, data, n_perm, n_pasts, iid):
+    def __init__(self, data, n_perm, n_pasts, temporal):
         self.number_of_perm = n_perm
         self.number_of_lags = n_pasts
         self.traces = data
@@ -71,7 +71,7 @@ def Gc_star():
         corr_coef = np.zeros(len(lags))
         for i in range(len(corr_coef)):
             if lags[i]< 0:
-                corr_coef[i] = np.corrcoef(x[:-np.abs(lags[i])], y[np.abs(lags[i]):])[1,0]
+                corr_coef[i] = np.corrcoef(x[:-np.abs(lags[i])], y[np.abs(lags[i]):])[1, 0]
             elif lags[i]==0:
                 corr_coef[i] = np.corrcoef(x, y)[1,0]
             else:
@@ -121,11 +121,11 @@ def Gc_star():
                 ## Computing p_Values of cross correlation 
                 l = lags[np.argmax(ccor)]
                 if l < 0:
-                    pVal_Xcorr[n,i] = perm_test_shift(data[n,:-np.abs(l)],data[i,np.abs(l):],n_perm)
+                    pVal_Xcorr[n,i] = self.perm_test(data[n,:-np.abs(l)],data[i,np.abs(l):],n_perm)
                 elif l==0:
-                    pVal_Xcorr[n,i] = perm_test_shift(data[n,:],data[i,:],n_perm)
+                    pVal_Xcorr[n,i] = self.perm_test(data[n,:],data[i,:],n_perm)
                 else:
-                    pVal_Xcorr[n,i] = perm_test_shift(data[n,l:],data[i,:-l],n_perm)
+                    pVal_Xcorr[n,i] = self.perm_test(data[n,l:],data[i,:-l],n_perm)
                 pVal_Xcorr[i,n] = pVal_Xcorr[n,i]
         max_corr_lag = max_corr_lag.astype(int)
 
@@ -180,6 +180,21 @@ def Gc_star():
                 idx1, idx2 = nn-1-i,-i-1
                 X_ = np.r_[X_, X[:,idx1:idx2]]
             return X_
+
+
+    def residual(self, x, z):
+        """
+        Computes the residuals of a variable x by regressing a conditioning set z out of it
+        :param x: Variable in question to regress out the conditioning set 
+        :param z: Conditioning set 
+        :return:
+        """
+        model = LinearRegression(fit_intercept=True)
+        model.fit(z.T, x)
+        coefs, intercept = model.coef_, model.intercept_
+        return x - np.dot(coefs, z) - intercept
+        # return residual
+
 
         
     def correlation_func(self):   # naame compute_dependence_with_corelation()
@@ -244,7 +259,7 @@ def Gc_star():
         inv_corr,pVal_inv_corr =np.zeros((n_neur,n)), np.zeros((n_neur, n))
         for i in range(0, n_neur):
             for j in range(0, n):
-                x, y, z = data[i],d ata[j], conditioning_set(traces, n_past, i, j)             
+                x, y, z = data[i],data[j], conditioning_set(traces, n_past, i, j)             
                 x_res,y_res = self.residual(x, z), self.residual(y, z)
                 inv_corr[i, j] = np.abs(np.corrcoef(x_res, y_res)[1, 0])
                 pVal_inv_corr[i, j] = self.perm_test(x_res, y_res, n_perm)
@@ -253,7 +268,7 @@ def Gc_star():
         return corr,pVal_corr, inv_corr,pVal_inv_corr
 
 
-    def proceed_GC(self, corr,pVal_corr,inv_corr,pVal_inv_corr,alpha,beta,n_past):
+    def connectivity_matrix_(self,alpha,beta):
         """
 
         :param corr:
@@ -265,27 +280,36 @@ def Gc_star():
         :param n_past:
         :return:
         """
-        sig_corr = np.multiply(corr,pVal_corr<=alpha)        # compute significant correlation matrix
-        sig_inv = np.multiply(inv_corr,pVal_inv_corr<=beta)  # compute significant partial correlation matrix
-        inferred = np.logical_and(sig_corr,sig_inv)          # inferred matrix
-        plott_(inferred,n_past)   
-        b, all_, n_neur = 0, [], inferred.shape[1]
+        corr, pVal_corr = self.corr, self.pVal_corr
+        inv_corr, pVal_inv_corr = self.inv_corr, self.pVal_inv_corr
+        n_past = self.number_of_pasts
+
+        # determine significance with chosen alpha and beta
+        sig_corr = np.multiply(corr, pVal_corr <= alpha)        # compute significant correlation matrix
+        sig_inv = np.multiply(inv_corr, pVal_inv_corr <= beta)  # compute significant partial correlation matrix
         
-        # merging results for the GC order used
-        for a in range(n_past+1):     
-            all_.append(inferred[a*n_neur:(a+1)*n_neur,b*n_neur:(b+1)*n_neur])
-        nn, new_inf = n_past+1, all_[0]
-        for i in range(1,n_past):        # use 'nn' if all matrices are to be used, here i take out the last one
-            new_inf = np.logical_or(new_inf,all_[i])
-    #     new_inf = np.multiply(corr[:n_neur,:],new_inf)   # multiplied with correlation to determine the strength of connections
-    #     np.fill_diagonal(new_inf,0)      # self connectivity removed
-        plt.figure()
-        plt.imshow(new_inf,vmin=0,vmax=1)
-    #     plt.colorbar()
-        return new_inf # take into account variations in lags  
+        return np.logical_and(sig_corr, sig_inv)          # inferred matrix
+        
+        
+        def split_inferred_(self, inferred): 
+            # self.plott_(inferred, n_past)   
+            b, all_, n_neur = 0, [], inferred.shape[1]
+            n_past = self.number_of_pasts
+            # merging results for the GC order used
+            for a in range(n_past+1):     
+                all_.append(inferred[a*n_neur:(a+1)*n_neur,b*n_neur:(b+1)*n_neur])
+            nn, new_inf = n_past+1, all_[0]
+            for i in range(1,n_past):        # use 'nn' if all matrices are to be used, here i take out the last one
+                new_inf = np.logical_or(new_inf,all_[i])
+        #     new_inf = np.multiply(corr[:n_neur,:],new_inf)   # multiplied with correlation to determine the strength of connections
+        #     np.fill_diagonal(new_inf,0)      # self connectivity removed
+            plt.figure()
+            plt.imshow(new_inf,vmin=0,vmax=1)
+        #     plt.colorbar()
+            return new_inf # take into account variations in lags  
 
 
-    def proceed_GC_new(corr,pVal_corr,inv_corr,pVal_inv_corr,alpha,beta,n_past):
+    def connectivity_matrix_from_markovianity_check(corr,pVal_corr,inv_corr,pVal_inv_corr,alpha,beta,n_past):
         """
         Only select matrix at 1 past
         :param corr:
@@ -330,25 +354,13 @@ def Gc_star():
     
 
 
-    def modify_inv_corr(self, self.inv_corr, a):
+    def modify_inv_corr(self, inv_corr, a):
         # a is the percentile to be discarded
         inv_corr = self.inv_corr
         m = (inv_corr.max() - inv_corr.min()) * a
         return np.multiply(inv_corr >= m, inv_corr)
 
 
-def residual(x,z):
-    """
-
-    :param x:
-    :param z:
-    :return:
-    """
-    model = LinearRegression(fit_intercept=True)
-    model.fit(z.T,x)
-    coefs,intercept = model.coef_,model.intercept_
-    residual = x - np.dot(coefs,z)-intercept
-    return residual
 
 
 def vertixDegree(inferred_):
