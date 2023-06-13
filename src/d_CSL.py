@@ -30,8 +30,56 @@ class Gc_star():
     def check_data_is_time_sereis(self):
         return self.temporal
 
+<<<<<<< HEAD
     def get_number_of_lags(self):
         return self.number_of_lags
+=======
+@njit
+def cross_corr(x, y, n_lags):
+    """Returns the absolute values of cross correlation of 2 variables with any specified lag window
+
+    Parameters:
+    x (array like): array of a variable of any length
+    y (array like): array of a variable of same length as x
+    n_lags (int): lag window size (function takes both positive and negative lag of the same window
+
+    Returns:
+    cross correlation of 2 variable (array like), each entry of the array, the correlationat each lag window
+
+   """
+
+    lags = np.arange(-n_lags+1, n_lags)
+    corr_coef = np.zeros(len(lags))
+    for i in range(len(corr_coef)):
+        if lags[i]< 0:
+            corr_coef[i] = np.corrcoef(x[:-np.abs(lags[i])], y[np.abs(lags[i]):])[1,0]
+        elif lags[i]==0:
+            corr_coef[i] = np.corrcoef(x, y)[1,0]
+        else:
+            corr_coef[i] = np.corrcoef(x[lags[i]:], y[:-lags[i]])[1,0]
+
+    return np.abs(corr_coef)
+
+
+
+def cross_correlation(data,n_perm,n_lags):
+    """Computes correlation of a given data both at zero and a desired lag window. Takes both positive and negative lags.
+
+    Parameters:
+    data (array like, matrix): array of a variable of any length. (Variables are aligned on the rows)
+    n_lags (int): desired lag window size to be taken.
+
+    Returns:
+    corr_coef_no_lag (array like, matrix): Correlation matrix of data at zero lags
+    max_ccoef_mat (array like, matrix): Correlation matrix of data at a specified maximum lag window (n_lags)
+    max_corr_lag (array like, matrix): Matrix of lag at which maximum correlation occured.
+
+    """
+
+    # cross correlation at zero lag using the np.corrcoef()
+    corr_coef = np.abs(np.corrcoef(data))
+    pVal_corr, pVal_Xcorr = np.zeros_like(corr_coef),np.zeros_like(corr_coef)
+>>>>>>> db6b15b (adding classes)
     
     def load_pickle_data(self):
         raise NotImplementedError
