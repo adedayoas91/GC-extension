@@ -9,28 +9,28 @@ class Visualize_on_topography():
         self.number_of_pasts = n_pasts
 
     def extract_coordinates(self):
-            """
-            Extracts 3D coordinates of each ROIs
-            :param inferred: shape [n x n] inferred matrix
-            :param topography: the position of ROIs given from data
-            :return: coordinates for each ROIs and the edges [t]
-            """
-            inferred, topography = self.conn_mat, self.cell_centers
-            t = np.transpose(np.where(inferred>0))
-            point_1 = np.zeros_like(t)
-            point_2 = np.zeros_like(t)
+        """
+        Extracts 3D coordinates of each ROIs
+        :param inferred: shape [n x n] inferred matrix
+        :param topography: the position of ROIs given from data
+        :return: coordinates for each ROIs and the edges [t]
+        """
+        inferred, topography = self.conn_mat, self.cell_centers
+        t = np.transpose(np.where(inferred>0))
+        point_1 = np.zeros_like(t)
+        point_2 = np.zeros_like(t)
 
-            for i in range(len(t)):
-                point_1[i]=topography[t[i,0],[0,1]]
-                point_2[i]=topography[t[i,1],[0,1]]
+        for i in range(len(t)):
+            point_1[i]=topography[t[i,0],[0,1]]
+            point_2[i]=topography[t[i,1],[0,1]]
 
-            x_val,y_val,z_val = [],[],[]
-            for i in range(len(point_1)):
-                x_val.append([point_1[i,0],point_2[i,0]])
-                y_val.append([point_1[i,1],point_2[i,1]])
-                z_val.append([topography[t[i,0],2],topography[t[i,1],2]])
+        x_val,y_val,z_val = [],[],[]
+        for i in range(len(point_1)):
+            x_val.append([point_1[i,0],point_2[i,0]])
+            y_val.append([point_1[i,1],point_2[i,1]])
+            z_val.append([topography[t[i,0],2],topography[t[i,1],2]])
 
-            return x_val,y_val,z_val, t
+        return x_val,y_val,z_val, t
 
 
 
@@ -77,7 +77,7 @@ class Visualize_on_topography():
 
 
 
-    def plot_connectivity_matrix_of_identified_ROIs_in_volume(inferred,centers,arr):
+    def plot_connectivity_matrix_of_identified_ROIs_from_volume(inferred,centers,arr):
         """
 
         :param inferred:
