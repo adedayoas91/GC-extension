@@ -332,15 +332,10 @@ class Gc_star():
         return corr, pVal_corr, inv_corr, pVal_inv_corr
 
 
-
-    
-
-
     def modify_inv_corr(self, inv_corr, a):
         # a is the percentile to be discarded
-        inv_corr = self.inv_corr
-        m = (inv_corr.max() - inv_corr.min()) * a
-        return np.multiply(inv_corr >= m, inv_corr)
+        m = (self.inv_corr.max() - self.inv_corr.min()) * a
+        return np.multiply(self.inv_corr >= m, self.inv_corr)
 
 
 
