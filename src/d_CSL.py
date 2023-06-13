@@ -164,30 +164,6 @@ class Gc_star():
         return count/shuffle
 
 
-
-
-    def prep_data(self, traces):
-        """
-        Creates shifted versions of original data based on the number of pasts nn required.
-        Concatenate the shifted arrays and return the new data.
-        Args:
-            X: (array-like, shape [# of variable X # of samples]): Raw data
-            nn: (int) number of shifted version of data required
-
-        Returns: shifted data
-
-        """
-        nn = self.number_of_lags
-        if nn == None or nn == 0:
-            return traces
-        else:
-            X_ = traces[:, (nn):]
-            for i in range(nn):
-                idx1, idx2 = nn-1-i, -i-1
-                X_ = np.r_[X_, traces[:, idx1:idx2]]
-            return X_
-
-
     def residual(self, x, z):
         """
         Computes the residuals of a variable x by regressing a conditioning set z out of it
