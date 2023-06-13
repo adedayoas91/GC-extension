@@ -34,7 +34,7 @@ class Visualize_on_topography():
 
 
 
-    def plot_correlation_of_ROIs_with_behavior(self, corr_list):
+    def plot_correlation_of_ROIs_with_behavior(self, corr_with_beh):
         """
         Plots the correlation of each ROIs with the behavior trace on the topography
         Args:
@@ -47,11 +47,11 @@ class Visualize_on_topography():
         centers = self.cell_centers
         fig = plt.figure(figsize=(10, 6))
         if centers.shape[1] == 2:
-            plt.scatter(centers[:, 0], centers[:, 1], marker = 'o', s = 10, c = corr_list, cmap = 'seismic')
+            plt.scatter(centers[:, 0], centers[:, 1], marker = 'o', s = 10, c = corr_with_beh, cmap = 'seismic')
             plt.colorbar()
         else:
             ax = fig.add_subplot(111, projection = "3d")
-            p = ax.scatter(centers[:, 0], centers[:, 1], centers[:, 2], marker = 'o', s = 10, c = corr_list, cmap = 'seismic')
+            p = ax.scatter(centers[:, 0], centers[:, 1], centers[:, 2], marker = 'o', s = 10, c = corr_with_beh, cmap = 'seismic')
             fig.colorbar(p)
 
 
