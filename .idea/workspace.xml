@@ -28,6 +28,7 @@
   </component>
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
+    &quot;ASKED_ADD_EXTERNAL_FILES&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
@@ -55,7 +56,18 @@
       <workItem from="1686597694189" duration="476000" />
       <workItem from="1686641815791" duration="1029000" />
       <workItem from="1686672437830" duration="205000" />
+      <workItem from="1687265614522" duration="39000" />
+      <workItem from="1687265662904" duration="535000" />
+      <workItem from="1687678333725" duration="17000" />
     </task>
+    <task id="LOCAL-00001" summary="Updated Refactoring repo">
+      <created>1687265727830</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1687265727830</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -71,5 +83,10 @@
         </entry>
       </map>
     </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
+    <MESSAGE value="Updated Refactoring repo" />
+    <option name="LAST_COMMIT_MESSAGE" value="Updated Refactoring repo" />
   </component>
 </project>

@@ -1,10 +1,10 @@
 import mat73
 import numpy as np
 from pathlib import Path
-from matplotlib.pyplot import plt
+import matplotlib.pyplot as plt
 
 
-class load_data():   # find the problem here
+class Load_data():   # find the problem here
 
     def __init__(self, file_path):
         self.file_path = Path(file_path)

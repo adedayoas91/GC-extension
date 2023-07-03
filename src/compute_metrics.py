@@ -2,36 +2,41 @@ import numpy as np
 
 
 class Compute_metrics():
-    def __init__(self, connectivity_matrix, ) -> None:
-        pass
+    def __init__(self, connectivity_matrix, A, n_past) -> None:
+        self.conn_mat = connectivity_matrix
+        self.ground_truth = A
+        self.number_of_past = n_past
 
 
-    def confusion_matrix(inferred, A):
+    def compute_confusion_matrix(self, A):
         """
 
-        :param inferred:
-        :param A:
+        :param inferred: Connectivity matrix inferred from data
+        :param A: Ground truth connectivity matrix
         :return:
         """
+        A, inferred = self.ground_truth, self.connectivity_matrix
         TP_inf = np.sum(np.logical_and(A != 0,inferred!=0))
         FN_inf = np.sum(np.logical_and(A != 0,inferred==0))
         FP_inf = np.sum(np.logical_and(A == 0,inferred!=0))
         TN_inf = np.sum(np.logical_and(A == 0,inferred==0))
-        return np.array([[TP_inf,FN_inf],
-                        [FP_inf,TN_inf]])
+        self.confusion_matrix = np.array([[TP_inf,FN_inf],
+                                         [FP_inf,TN_inf]])
+        return self.confusion_matrix
 
 
-    def apr_metrics(confusion_matrix):
+    def compute_metrics_from_confusion_matrix(self):
         """
 
         :param confusion_matrix:
         :return:
         """
-        confusion_matrix = confusion_matrix.flatten()
-        accuracy = (confusion_matrix[0] + confusion_matrix[3])/(np.sum(confusion_matrix))
-        precision = confusion_matrix[0]/(confusion_matrix[0]+confusion_matrix[2])
-        recall = confusion_matrix[0]/(confusion_matrix[0]+confusion_matrix[1])
-        FPR = confusion_matrix[2]/(confusion_matrix[2]+confusion_matrix[3])
+
+        confusion_matrix_ = self.confusion_matrix.flatten()
+        accuracy = (confusion_matrix_[0] + confusion_matrix_[3])/(np.sum(confusion_matrix_))
+        precision = confusion_matrix_[0]/(confusion_matrix_[0]+confusion_matrix_[2])
+        recall = confusion_matrix_[0]/(confusion_matrix_[0]+confusion_matrix_[1])
+        FPR = confusion_matrix_[2]/(confusion_matrix_[2]+confusion_matrix_[3])
         return np.array([accuracy, precision, recall, FPR])
 
 
@@ -43,29 +48,30 @@ class Compute_metrics():
         :param idx:
         :return:
         """
-        inferred_ = np.zeros((traces.shape[0],traces.shape[0]))
-        p = np.transpose(np.where(inf!=0))
+        inferred_ = np.zeros((traces.shape[0], traces.shape[0]))
+        p = np.transpose(np.where(inf != 0))
         for i in range(len(p)):
-            inferred_[idx[p[i,0]], idx[p[i,1]]] = 1
+            inferred_[idx[p[i, 0]], idx[p[i, 1]]] = 1
         return inferred_
 
 
-    def distance(centers,inf):
+    def compute_distance_of_each_projection(self):
         """
 
         :param centers:
         :param inf:
         :return:
         """
+
         loc = np.transpose(np.where(inf>0))
         dist = np.zeros(len(loc))
         for i in range(len(loc)):
-            p1,p2 = centers[loc[i,0]],centers[loc[i,1]] 
+            p1,p2 = self.centers[loc[i,0]], self.centers[loc[i,1]] 
             dist[i] = np.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2 + (p2[2]-p1[2])**2)
         return dist
         
 
-    def counter_(out_,from_,emitter,reciever):
+    def count_number_of_in_out_edges_for_each_ROIs(out_,from_,emitter,reciever):
         """
 
         :param out_:
@@ -84,13 +90,14 @@ class Compute_metrics():
         return n_out, n_in
 
 
-    def vertixDegree(inferred_):
+    def roi_neighbors(self):
         """
 
         :param inferred_:
         :return:
         """
-        nodes_out,nodes_in = {},{}
+        inferred_ = self.conn_mat
+        nodes_out, nodes_in = {},{}
         for i in range(inferred_.shape[0]):
             nodes_out[i] = np.where(inferred_[i]!=0)[0]
             nodes_in[i] = np.where(inferred_.T[i]!=0)[0]
