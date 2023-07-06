@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# coding: utf-8
+
 import numpy as np
 
 
@@ -8,9 +11,9 @@ class Compute_metrics():
         self.number_of_past = n_past
 
 
-    def compute_confusion_matrix(self, A):
+    def compute_confusion_matrix(self):
         """
-
+        Compares and returns the comfusion matrix from an inferred connectivity mati=rix and the ground truth matrix
         :param inferred: Connectivity matrix inferred from data
         :param A: Ground truth connectivity matrix
         :return:
@@ -27,9 +30,8 @@ class Compute_metrics():
 
     def compute_metrics_from_confusion_matrix(self):
         """
-
-        :param confusion_matrix:
-        :return:
+        Compute metrixes from the confusion matrix. True and False positives, as well as True and False negatives.
+        :return: A vector of Accuracy, Precision, Recall and False Positive Rates
         """
 
         confusion_matrix_ = self.confusion_matrix.flatten()
@@ -40,7 +42,7 @@ class Compute_metrics():
         return np.array([accuracy, precision, recall, FPR])
 
 
-    def repopulate(inf,traces,idx):
+    def repopulate(inf, traces, idx):
         """
 
         :param inf:
