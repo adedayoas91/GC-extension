@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
-import os
-from typing import Self
+# import os
+# from typing import Self
 import numpy as np
 from sklearn.linear_model import LinearRegression
-import statsmodels.api as sm
-from sklearn.metrics import mean_squared_error
-import mat73
-from numba import jit, njit, vectorize
-import matplotlib.colors as mcolors
-from matplotlib.lines import Line2D
-from mpl_toolkits import mplot3d
+# import statsmodels.api as sm
+# from sklearn.metrics import mean_squared_error
+# import mat73
+from numba import jit, njit
+# import matplotlib.colors as mcolors
+# from matplotlib.lines import Line2D
+# from mpl_toolkits import mplot3d
 import matplotlib.pyplot as plt
-from tqdm.notebook import tqdm
+# from tqdm.notebook import tqdm
 
 
 ###################################################################
@@ -30,83 +30,56 @@ class Gc_star():
     def check_data_is_time_sereis(self):
         return self.temporal
 
-<<<<<<< HEAD
+
     def get_number_of_lags(self):
         return self.number_of_lags
-=======
-@njit
-def cross_corr(x, y, n_lags):
-    """Returns the absolute values of cross correlation of 2 variables with any specified lag window
-
-    Parameters:
-    x (array like): array of a variable of any length
-    y (array like): array of a variable of same length as x
-    n_lags (int): lag window size (function takes both positive and negative lag of the same window
-
-    Returns:
-    cross correlation of 2 variable (array like), each entry of the array, the correlationat each lag window
-
-   """
-
-    lags = np.arange(-n_lags+1, n_lags)
-    corr_coef = np.zeros(len(lags))
-    for i in range(len(corr_coef)):
-        if lags[i]< 0:
-            corr_coef[i] = np.corrcoef(x[:-np.abs(lags[i])], y[np.abs(lags[i]):])[1,0]
-        elif lags[i]==0:
-            corr_coef[i] = np.corrcoef(x, y)[1,0]
-        else:
-            corr_coef[i] = np.corrcoef(x[lags[i]:], y[:-lags[i]])[1,0]
-
-    return np.abs(corr_coef)
 
 
+    @njit
+    def cross_corr(x, y, n_lags):
+        """Returns the absolute values of cross correlation of 2 variables with any specified lag window
 
-def cross_correlation(data,n_perm,n_lags):
-    """Computes correlation of a given data both at zero and a desired lag window. Takes both positive and negative lags.
+        Parameters:
+        x (array like): array of a variable of any length
+        y (array like): array of a variable of same length as x
+        n_lags (int): lag window size (function takes both positive and negative lag of the same window
 
-    Parameters:
-    data (array like, matrix): array of a variable of any length. (Variables are aligned on the rows)
-    n_lags (int): desired lag window size to be taken.
+        Returns:
+        cross correlation of 2 variable (array like), each entry of the array, the correlationat each lag window
 
-    Returns:
-    corr_coef_no_lag (array like, matrix): Correlation matrix of data at zero lags
-    max_ccoef_mat (array like, matrix): Correlation matrix of data at a specified maximum lag window (n_lags)
-    max_corr_lag (array like, matrix): Matrix of lag at which maximum correlation occured.
+       """
 
-    """
+        lags = np.arange(-n_lags+1, n_lags)
+        corr_coef = np.zeros(len(lags))
+        for i in range(len(corr_coef)):
+            if lags[i]< 0:
+                corr_coef[i] = np.corrcoef(x[:-np.abs(lags[i])], y[np.abs(lags[i]):])[1,0]
+            elif lags[i]==0:
+                corr_coef[i] = np.corrcoef(x, y)[1,0]
+            else:
+                corr_coef[i] = np.corrcoef(x[lags[i]:], y[:-lags[i]])[1,0]
 
-    # cross correlation at zero lag using the np.corrcoef()
-    corr_coef = np.abs(np.corrcoef(data))
-    pVal_corr, pVal_Xcorr = np.zeros_like(corr_coef),np.zeros_like(corr_coef)
->>>>>>> db6b15b (adding classes)
-    
-    def load_pickle_data(self):
-        raise NotImplementedError
-
-    def get_number_of_perm(self):
-        return self.number_of_perm
-
-    def dependence_test_method(self, dependence_test_choice):
-        self.dependence_test = dependence_test_choice
-
-    def get_data_path(self, file_path):
-        return file_path
-    
-    def get_bad_frames(self, bad_frame_times):
-        return bad_frame_times 
+        return np.abs(corr_coef)
 
 
-    def load_data(self, file_path):
+
+    def cross_correlation(data,n_perm,n_lags):
+        """Computes correlation of a given data both at zero and a desired lag window. Takes both positive and negative lags.
+
+        Parameters:
+        data (array like, matrix): array of a variable of any length. (Variables are aligned on the rows)
+        n_lags (int): desired lag window size to be taken.
+
+        Returns:
+        corr_coef_no_lag (array like, matrix): Correlation matrix of data at zero lags
+        max_ccoef_mat (array like, matrix): Correlation matrix of data at a specified maximum lag window (n_lags)
+        max_corr_lag (array like, matrix): Matrix of lag at which maximum correlation occured.
+
         """
-        File name should be given in string with the path to where it is located.
-        :param file_name: the name of file containing data. 
-        :return: traces (loaded data)
-        """
-        self.traces = np.load(file_path)
-        return self.traces
 
-
+        # cross correlation at zero lag using the np.corrcoef()
+        corr_coef = np.abs(np.corrcoef(data))
+        pVal_corr, pVal_Xcorr = np.zeros_like(corr_coef),np.zeros_like(corr_coef)
 
     @njit
     def cross_corr(self, x, y):
@@ -375,8 +348,8 @@ def cross_correlation(data,n_perm,n_lags):
         :return:
         """
         traces, n_perm, n_past = self.traces, self.number_of_perm, self.number_of_pasts
-        corr,pVal_corr = self.correlation_func(traces,n_perm,n_past)    # no conditioning on the past
-        inv_corr,pVal_inv_corr = self.inv_correlation_func(traces,n_perm,n_past)
+        corr, pVal_corr = self.correlation_func(traces, n_perm, n_past)    # no conditioning on the past
+        inv_corr, pVal_inv_corr = self.inv_correlation_func(traces, n_perm, n_past)
         return corr, pVal_corr, inv_corr, pVal_inv_corr
 
 
