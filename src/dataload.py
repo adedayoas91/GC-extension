@@ -2,24 +2,26 @@ import numpy as np
 from pathlib import Path
 
 
-class LoadData:
+def load(file_path: str) -> np.ndarray:
     """
+    Loads calcium traces from a file. Accepted file types:
+     * npy
+     * txt
+     * pickle
+    Args:
+        file_path: string, file path of the file which will be loaded
 
+    Returns:
+        np.array of calcium tracers of the shape [ROIs x time]
     """
+    file = Path(file_path)
+    file_type = file.suffix
 
-    def __init__(self, file_path: str):
-        self.file_path = Path(file_path)
-        self.file_type = self.file_path.suffix
+    if file_type == 'npy':
+        data_array = np.load(file_path)
+    elif file_type == 'txt':
+        data_array = np.loadtxt(file_path)
+    else:
+        raise NotImplementedError
+    return data_array
 
-    def load(self): 
-        """
-
-        Returns:
-        """
-        if self.file_type == 'npy':
-            data_array = np.load(str(self.file_path)) # TODO: test if this works
-        elif self.file_type == 'txt':
-            data_array = np.loadtxt(self.file_path)
-        else:
-            raise NotImplementedError
-        return data_array
