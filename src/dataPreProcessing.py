@@ -22,26 +22,4 @@ def replace_nan(arr: np.ndarray, bad_frames: np.ndarray, delete_frames: bool) ->
     return arr_copy
 
 
-def shift_data(arr: np.ndarray, n_past: int) -> np.ndarray:
-    """
-    Creates shifted versions of original data based on the number of pasts nn required.
-    Concatenate the shifted arrays and return the new data.
-    Args:
-        arr:
-        n_past:
 
-    Returns:
-
-    """
-
-    if n_past == 0:
-        return arr
-
-    trimmed_arr = arr[:, n_past:]
-    for i in range(n_past):
-        idx1 = n_past - 1 - i
-        idx2 = -i - 1
-
-        trimmed_arr = np.r_[trimmed_arr, arr[:, idx1:idx2]]
-
-    return trimmed_arr
