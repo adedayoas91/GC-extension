@@ -10,7 +10,13 @@ from typing import Tuple, Optional
 
 class GcStar:
     """
-    TODO:
+    Methods:
+        fit(self, data: np.ndarray) 
+
+        get_connectivity_matrix(self)
+
+
+
     """
 
     corr_: Optional[np.ndarray]
@@ -22,10 +28,10 @@ class GcStar:
         """
 
         Args:
-            n_perm:
-            n_pasts:
-            n_lags:
-            temporal:
+            n_perm: number of permutations (default = 1000)
+            n_pasts: number of past states
+            n_lags: maximum allowable lags 
+            temporal: defines if data is time series or iid
         """
         self.n_perm = n_perm
         self.n_pasts = n_pasts
@@ -52,11 +58,11 @@ class GcStar:
         Creates shifted versions of original data based on the number of pasts nn required.
         Concatenate the shifted arrays and return the new data.
         Args:
-            arr:
-            n_past:
+            arr: original data recorded or obtained from experiments
+            n_past: number of pasts defining the number of shifts 
 
         Returns:
-
+            Shifted data. 
         """
 
         if n_past == 0:
@@ -97,7 +103,13 @@ class GcStar:
         return count / self.n_perm
 
     def __get_number_of_neurons(self, trimmed_arr):
-        # TODO: add comment explaining this
+        """
+        Computes the number of neurons/variables from the shape of the shifted data  
+        Args:
+            trimmed_arr: shifted data from __shift_data()
+        Returns:
+
+        """
         return trimmed_arr.shape[0] / (self.n_pasts + 1)
 
     def __correlation_func(self, trimmed_arr: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:  # name compute_dependence_with_corelation()
@@ -183,12 +195,15 @@ class GcStar:
 
     def fit(self, data: np.ndarray):
         """
-
-        Args:
-            data:
+        Fits c-gc to data 
+        Args: 
+            data: array-like of shape (n_neur, T)
+                where `n_neur` is the number of neurons or variables
+                and `T` is the time or number of samples 
 
         Returns:
-
+            self : object
+                Returns the instance itself
         """
         self.data = data.copy()
         self.shifted_data = self.__shift_data(self.data, self.n_pasts)
@@ -197,13 +212,14 @@ class GcStar:
 
     def get_connectivity_matrix(self, alpha: float = 0.05, beta: float = 0.001) -> np.ndarray:
         """
-
+        Computes the connectivity matrix from significant conditional and unconditional links
+            based on the maximum lag allowed for the analysis. 
         Args:
-            alpha:
-            beta:
+            alpha: float, Significance level for unconditional dependence (default value 0.05) 
+            beta: float, Significance level for conditional dependence (default value 0.001)
 
         Returns:
-
+            Connectivity matrix of shape (n_neur, n_neur)
         """
 
         sig_corr = np.multiply(self.corr_, self.pVal_corr_ <= alpha)  # compute significant correlation matrix
