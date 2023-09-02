@@ -10,13 +10,11 @@ from typing import Tuple, Optional
 
 class GcStar:
     """
+    Implementation of Granger causality from causal Bayesian network perspective. 
     Methods:
         fit(self, data: np.ndarray) 
-
         get_connectivity_matrix(self)
-
-
-
+        
     """
 
     corr_: Optional[np.ndarray]
@@ -50,13 +48,20 @@ class GcStar:
         return self.temporal
 
     def get_number_of_lags(self) -> int:
+        """
+        Collects an integer valued maximum lag desired for use in the analysis
+        """
         return self.n_lags
 
     @staticmethod
     def __shift_data(arr: np.ndarray, n_past: int) -> np.ndarray:
         """
-        Creates shifted versions of original data based on the number of pasts nn required.
+        Creates shifted versions of original data based on the number of pasts required.
         Concatenate the shifted arrays and return the new data.
+
+        Examples: Given original data as X,
+            trimmed_arr = __shifted_data(X, n_past = n)
+            with trimmed_arr = {X_{t}, X_{t-1}, \dots, X_{t-n}}^T
         Args:
             arr: original data recorded or obtained from experiments
             n_past: number of pasts defining the number of shifts 
@@ -77,6 +82,7 @@ class GcStar:
 
         return trimmed_arr
 
+
     @jit(nopython=True)
     def __perm_test(self, x: np.ndarray, y: np.ndarray) -> float:
         """
@@ -84,7 +90,8 @@ class GcStar:
         Args:
             x: (array like, vector): Realisation of a variable x
             y: (array like, vector): Realisation of a variable y
-        Returns: p_value
+        Returns:
+            p_value
         """
         count = 0
         corr_1 = np.corrcoef(x, y)[1, 0]
@@ -106,20 +113,25 @@ class GcStar:
         """
         Computes the number of neurons/variables from the shape of the shifted data  
         Args:
-            trimmed_arr: shifted data from __shift_data()
+            trimmed_arr: shifted data from self.__shift_data()
         Returns:
-
+            number of variables/neurons in data
         """
         return trimmed_arr.shape[0] / (self.n_pasts + 1)
 
-    def __correlation_func(self, trimmed_arr: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:  # name compute_dependence_with_corelation()
+    def __correlation_func(self, trimmed_arr: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
-
+        # name compute_dependence_with_corelation()
+        Computes unconditional dependence of any variable pair using Pearson's correlation as dependence metric
         Args:
-            trimmed_arr:
-
+            trimmed_arr: shifted data from __shift_data()
         Returns:
-            TODO: extend with long and precise documentation
+            corr[:, :n]: np.ndarray shape [trimmed_arr.shape[0], self.n_neur]
+                Correlation matrix of the data but done on the shifted data, however, we select the portion
+                that is most relevant for us by slicing the matrix into shape required
+
+            pVal_corr: np.ndarray with shape as the correlation matrix.
+                contains the p-values of individual elements in the correlation matrix
         """
         corr = np.abs(np.corrcoef(trimmed_arr))
         n = trimmed_arr.shape[0]
@@ -133,11 +145,12 @@ class GcStar:
 
     def __residual(self, x: np.ndarray, z: np.ndarray) -> np.ndarray:
         """
-        TODO: wrong python docstring!!!!
         Computes the residuals of a variable x by regressing a conditioning set z out of it
-        :param x: Variable in question to regress out the conditioning set
-        :param z: Conditioning set
-        :return:
+        Args:
+            x: Variable in question to regress out the conditioning set
+            z: Conditioning set based on whether c-GC or fc-GC was used.
+        return:
+            the residual of x conditioned on z
         """
 
         model = LinearRegression(fit_intercept=True)
@@ -165,14 +178,19 @@ class GcStar:
 
         return z
 
-    def __inv_correlation_func(self, trimmed_arr: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:  # compute_conditional_dependence_with_corelation()
+    def __inv_correlation_func(self, trimmed_arr: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
-        TODO: document very properly!!!!
+        Computes conditional dependency of any variable pair with Pearson's correlation as the dependence metric.
+        It computes the residual of any pair in question with the conditioning set of choice (c-GC or fc-GC style).
         Args:
-            trimmed_arr:
-
+            trimmed_arr: This is the modified data obtained from self.__shift_data()
         Returns:
+            inv_corr: np.ndarray shape [trimmed_arr.shape[0], self.n_neur]
+                Correlation matrix of the data but done on the shifted data, however, we select the portion
+                that is most relevant for us by slicing the matrix into shape required
 
+            pVal_inv_corr: np.ndarray with shape as the correlation matrix
+                contains the p-values of individual elements in the correlation matrix
         """
         n = trimmed_arr.shape[0]
         n_neur = self.__get_number_of_neurons(trimmed_arr)
@@ -221,10 +239,12 @@ class GcStar:
         Returns:
             Connectivity matrix of shape (n_neur, n_neur)
         """
+        # compute significant correlation and inverse correlation matrices
+        sig_corr = np.multiply(self.corr_, self.pVal_corr_ <= alpha)
+        sig_inv = np.multiply(self.inv_corr_, self.pVal_inv_corr_ <= beta)
 
-        sig_corr = np.multiply(self.corr_, self.pVal_corr_ <= alpha)  # compute significant correlation matrix
-        sig_inv = np.multiply(self.inv_corr_, self.pVal_inv_corr_ <= beta)  # compute significant partial correlation matrix
-        inferred = np.logical_and(sig_corr, sig_inv)  # inferred matrix
+        # extended connectivity matrix
+        inferred = np.logical_and(sig_corr, sig_inv)
 
         b = 0
         all_ = []
@@ -239,8 +259,9 @@ class GcStar:
         for i in range(1, self.n_lags):  # use 'nn' if all matrices are to be used, here i take out the last one
             new_inf = np.logical_or(new_inf, all_[i])
 
-        new_inf = np.multiply(self.corr_[:n_neur, :], new_inf)  # multiplied with correlation to determine the strength of connections
-        np.fill_diagonal(new_inf, 0)  # self connectivity removed
+        # multiplied with correlation to return connections strength
+        new_inf = np.multiply(self.corr_[:n_neur, :], new_inf)
+        # remove self connections (diagonal connections)
+        np.fill_diagonal(new_inf, 0)
 
         return new_inf
-)

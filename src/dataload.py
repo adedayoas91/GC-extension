@@ -12,7 +12,7 @@ def load(file_path: str) -> np.ndarray:
         file_path: string, file path of the file which will be loaded
 
     Returns:
-        np.array of calcium tracers of the shape [ROIs x time]
+        np.array of calcium tracers of the shape [n_ROIs x Time]
     """
     file = Path(file_path)
     file_type = file.suffix
