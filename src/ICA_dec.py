@@ -3,15 +3,14 @@
 
 import os
 import numpy as np
-from utils import *
+# from utils import *
 import matplotlib.pyplot as plt
 from sklearn.decomposition import FastICA, PCA
 from scipy.signal import welch
 import pandas as pd
-from new_utils import *
+# from new_utils import *
 from sklearn.cluster import KMeans
 from mpl_toolkits.mplot3d import Axes3D
-
 
 
 class ICA_dec:
@@ -35,11 +34,10 @@ class ICA_dec:
 
         self.data = None
 
-        self.ics = None
+        self.ic_comps = None
         self.mixing_mat = None
 
-
-    def eig_dec(self, data, var_to_keep: float) -> int:
+    def get_n_comps_with_eig_dec(self, data, var_to_keep: float) -> int:
         """
 
         Args:
@@ -56,14 +54,14 @@ class ICA_dec:
             var = np.sum(eig_values[:i]) / np.sum(eig_values)
             i += 1
         plt.stem(np.arange(len(eig_values)), eig_values)
-        plt.vlines(i, 0, eig_values.max(), label='{} eig_vals = {}'.format(i, np.sum(eig_values[:i]) / np.sum(eig_values)),
+        plt.vlines(i, 0, eig_values.max(),
+                   label='{} eig_vals = {}'.format(i, np.sum(eig_values[:i]) / np.sum(eig_values)),
                    color='r')
         plt.legend()
         plt.title('Eigen values')
         return i
 
-
-    def ica_dec(self, data, n_comps, t, max_):
+    def fit(self, data):
         """
 
         Args:
@@ -74,33 +72,40 @@ class ICA_dec:
         Returns:
 
         """
-        ica = FastICA(n_components = n_comps, tol = self.tolerance, max_iter = self.max_iter, whiten='unit-variance')
+        ica = FastICA(n_components = self.n_comps, tol = self.tolerance, max_iter = self.max_iter, whiten = 'unit-variance')
         ic_comps = ica.fit_transform(data.T)
-        A = ica.mixing_
+        mixing_mat = ica.mixing_
         mean = ica.mean_
-        IC_ft = np.zeros((n_comps, data.shape[1]))
-        for i in range(n_comps):
+        IC_ft = np.zeros((self.n_comps, data.shape[1]))
+        for i in range(self.n_comps):
             IC_ft[i, :] = np.abs(np.fft.fft(ic_comps[:, i]))
-        return ic_comps, IC_ft, A, mean
+        return ic_comps, IC_ft, mixing_mat, mean
 
 
-    def plott_ics(ics):  # ,found_artifacts
+    # visualise
+    def plott_ics(ics):
         fig, ax = plt.subplots(ics.shape[1], 1, figsize=(15, 1.3 * ics.shape[1]))
         for i in range(ics.shape[1]):
-            ax[i].vlines(np.arange(30, 1210, 60), ymin=ics.T[i, :].min(), ymax=ics.T[i, :].max(), ls='--', color='g', lw=.6)
+            ax[i].vlines(np.arange(30, 1210, 60), ymin=ics.T[i, :].min(), ymax=ics.T[i, :].max(), ls='--', color='g',
+                         lw=.6)
             ax[i].plot((ics.T[i, :]), label='{}'.format(i), lw=.6)
             ax[i].set_ylim([-.2, .2])
             ax[i].legend()
 
 
     # clusterigs
-    def cluster(ICs, n_clus, f_s):
+    def cluster(self, n_clus, f_s):
         """
         ICs (array ): The matrix of all ICs; shape [n_features, n_ICs].
         l (int): the length to which mat is truncated to cluster on
-        n_clus (int): number of cluster (2 or 3)
-        """
 
+        Args:
+            n_clus: (int) number of cluster (2 or 3)
+            f_s: sampling frequency of data
+
+        Returns:
+
+        """
         # Kmeans on truncated spectra
         IC_welch = np.zeros((ICs.shape[1], 126))
         for i in range(ICs.shape[1]):
@@ -115,7 +120,6 @@ class ICA_dec:
 
 
     # plottings
-
     def plot_FT_spectrals(ICs, f_s, n_comps):
         """
         Ics: all ICA returns indep components with returned shape [n_features,n_var]
@@ -142,7 +146,8 @@ class ICA_dec:
         fig = plt.figure(figsize=(6, 6))
         ax = Axes3D(fig)
         for i in range(int(predictions.max()) + 1):
-            ax.scatter(new_mat[:, 0][predictions == i], new_mat[:, 1][predictions == i], new_mat[:, 2][predictions == i],
+            ax.scatter(new_mat[:, 0][predictions == i], new_mat[:, 1][predictions == i],
+                       new_mat[:, 2][predictions == i],
                        label=i, cmap='brg')
 
         # ax.scatter([0,0],centers[0,1],centers[0,2],c='b',s=80,label='Noise')
@@ -161,7 +166,8 @@ class ICA_dec:
             group = IC_ft[np.where(alll[:, 3] == i)]
             for j in range(group.shape[0]):
                 ax[i].plot(np.fft.fftshift(np.linspace(-f_s / 2, f_s / 2, IC_ft.shape[1])), group[j, :])
-            ax[i].plot(np.fft.fftshift(np.linspace(-f_s / 2, f_s / 2, IC_ft.shape[1])), group.mean(0), color='black', lw=2,
+            ax[i].plot(np.fft.fftshift(np.linspace(-f_s / 2, f_s / 2, IC_ft.shape[1])), group.mean(0), color='black',
+                       lw=2,
                        label='mean')
             ax[i].set_xlim([0, 3])
             ax[i].set_title('cluster {} with {} enteries'.format(i, group.shape[0]))
@@ -181,7 +187,8 @@ class ICA_dec:
             ax[i].set_title('LogPower clus {}, {}'.format(i, group.shape[0]))
             ax[i].legend()
 
-            ax[n_clus].plot(np.fft.fftshift(np.linspace(-f_s / 2, f_s / 2, IC_ft.shape[1])), np.log(group.mean(0)), lw=1,
+            ax[n_clus].plot(np.fft.fftshift(np.linspace(-f_s / 2, f_s / 2, IC_ft.shape[1])), np.log(group.mean(0)),
+                            lw=1,
                             label='clus {}'.format(i))
             ax[n_clus].set_xlim([0, .75])
             ax[n_clus].set_ylim([-3, 3])
