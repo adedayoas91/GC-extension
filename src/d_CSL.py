@@ -6,6 +6,13 @@ from sklearn.linear_model import LinearRegression
 from numba import jit, njit
 import matplotlib.pyplot as plt
 from typing import Tuple, Optional
+import statsmodels.api as sm
+from sklearn.metrics import mean_squared_error
+import mat73
+import matplotlib.colors as mcolors
+from mpl_toolkits import mplot3d
+import matplotlib.pyplot as plt
+from tqdm.notebook import tqdm
 
 
 class GcStar:
@@ -14,13 +21,14 @@ class GcStar:
     Methods:
         fit(self, data: np.ndarray) 
         get_connectivity_matrix(self)
-        
+        plot_conn_mat_on_topography(self)
     """
 
     corr_: Optional[np.ndarray]
     pVal_corr_: Optional[np.ndarray]
     inv_corr_: Optional[np.ndarray]
     pVal_inv_corr_: Optional[np.ndarray]
+
 
     def __init__(self, n_perm: int, n_pasts: int, n_lags: int, temporal: bool = True):
         """
@@ -44,6 +52,7 @@ class GcStar:
         self.inv_corr_ = None
         self.pVal_inv_corr_ = None
 
+
     def is_time_series(self) -> bool:
         return self.temporal
 
@@ -52,6 +61,7 @@ class GcStar:
         Collects an integer valued maximum lag desired for use in the analysis
         """
         return self.n_lags
+
 
     @staticmethod
     def __shift_data(arr: np.ndarray, n_past: int) -> np.ndarray:
@@ -109,7 +119,8 @@ class GcStar:
                 count += 1
         return count / self.n_perm
 
-    def __get_number_of_neurons(self, trimmed_arr):
+
+    def __get_number_of_neurons(self, trimmed_arr: np.ndarray) -> int:
         """
         Computes the number of neurons/variables from the shape of the shifted data  
         Args:
@@ -117,7 +128,8 @@ class GcStar:
         Returns:
             number of variables/neurons in data
         """
-        return trimmed_arr.shape[0] / (self.n_pasts + 1)
+        return int(trimmed_arr.shape[0] / (self.n_pasts + 1))
+
 
     def __correlation_func(self, trimmed_arr: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -133,6 +145,7 @@ class GcStar:
             pVal_corr: np.ndarray with shape as the correlation matrix.
                 contains the p-values of individual elements in the correlation matrix
         """
+
         corr = np.abs(np.corrcoef(trimmed_arr))
         n = trimmed_arr.shape[0]
         n_neur = self.__get_number_of_neurons(trimmed_arr)
@@ -141,7 +154,9 @@ class GcStar:
         for i in range(n):
             for j in range(n_neur):
                 pVal_corr[i, j] = self.__perm_test(trimmed_arr[i, :], trimmed_arr[j, :])
+
         return corr[:, :n], pVal_corr
+
 
     def __residual(self, x: np.ndarray, z: np.ndarray) -> np.ndarray:
         """
@@ -161,13 +176,14 @@ class GcStar:
 
         return x - np.dot(coefs, z) - intercept
 
-    def __conditioning_set(self, i, j):
+
+    def __conditioning_set(self, i, j) -> np.ndarray:
         """
-        Identifies the variables in the conditioning set for granger causality implementation.
+        Identifies the variables in the conditioning set for Granger causality implementation.
         Args:
-            i: (int) number of permutations for p_value computations TODO: CHECK IF I AN J ARE CORRECTLY ASSIGNED
-            j: (int) number of pasts desired
-        Returns: correlation, corresponding p-Values, inverse correlation and the p-valeus
+            i: (int) index of the cause variable
+            j: (int) index of effect variable
+        Returns:
         """
         n = self.data.shape[0]
         k = i // n
@@ -211,6 +227,7 @@ class GcStar:
                 pVal_inv_corr[i, j] = self.__perm_test(x_res, y_res)
         return inv_corr, pVal_inv_corr
 
+
     def fit(self, data: np.ndarray):
         """
         Fits c-gc to data 
@@ -225,19 +242,23 @@ class GcStar:
         """
         self.data = data.copy()
         self.shifted_data = self.__shift_data(self.data, self.n_pasts)
-        self.corr_, self.pVal_corr_ = self.__correlation_func(self.shifted_data)  # TODO: remove parameter and just access class variable
+        self.corr_, self.pVal_corr_ = self.__correlation_func(
+            self.shifted_data)  # TODO: remove parameter and just access class variable
         self.inv_corr_, self.pVal_inv_corr_ = self.__inv_correlation_func(self.shifted_data)
+
 
     def get_connectivity_matrix(self, alpha: float = 0.05, beta: float = 0.001) -> np.ndarray:
         """
-        Computes the connectivity matrix from significant conditional and unconditional links
-            based on the maximum lag allowed for the analysis. 
+        Computes the weighted connectivity matrix from significant conditional and unconditional links
+            based on the maximum lag allowed for the analysis.
+            If the connections strength are not useful for analysis, the connectivity
+            matrix can be binarized
         Args:
             alpha: float, Significance level for unconditional dependence (default value 0.05) 
             beta: float, Significance level for conditional dependence (default value 0.001)
 
         Returns:
-            Connectivity matrix of shape (n_neur, n_neur)
+            Weighted Connectivity matrix of shape [n_neur, n_neur]
         """
         # compute significant correlation and inverse correlation matrices
         sig_corr = np.multiply(self.corr_, self.pVal_corr_ <= alpha)
@@ -254,14 +275,147 @@ class GcStar:
         for a in range(self.n_pasts + 1):
             all_.append(inferred[a * n_neur:(a + 1) * n_neur, b * n_neur:(b + 1) * n_neur])
 
-        new_inf = all_[0]
+        self.conn_mat = all_[0]
 
-        for i in range(1, self.n_lags):  # use 'nn' if all matrices are to be used, here i take out the last one
-            new_inf = np.logical_or(new_inf, all_[i])
+        for i in range(1, self.n_lags):
+            self.conn_mat = np.logical_or(self.conn_mat, all_[i])
 
         # multiplied with correlation to return connections strength
-        new_inf = np.multiply(self.corr_[:n_neur, :], new_inf)
+        self.conn_mat = np.multiply(self.corr_[:n_neur, :], self.conn_mat)
         # remove self connections (diagonal connections)
-        np.fill_diagonal(new_inf, 0)
+        np.fill_diagonal(self.conn_mat, 0)
+        return self.conn_mat
 
-        return new_inf
+
+    ### computing metrics
+
+
+    def __compute_confusion_matrix(self, A: np.ndarray):
+        """
+        Function to compute the performance of the algorithm.
+        Computes the confusion matrix by comparing the ground truth
+        to the inferred connectivity matrix.
+        Args:
+            A: Ground truth connectivity matrix
+
+        Returns:
+            Confusion matrix with the form np.array([[TP, FN],
+                                                     [FP, TN]])
+        """
+        TP = np.sum(np.logical_and(A != 0, self.conn_mat != 0))
+        FN = np.sum(np.logical_and(A != 0, self.conn_mat == 0))
+        FP = np.sum(np.logical_and(A == 0, self.conn_mat != 0))
+        TN = np.sum(np.logical_and(A == 0, self.conn_mat == 0))
+        self.confusion_matrix = np.array([[TP, FN],
+                                          [FP, TN]])
+
+    @property
+    def compute_metrics(self) -> np.ndarray:
+        """
+        Computes metrics from the confusion matrix.
+        Returns:
+            An array containing the computed metrics.
+            in the order np.array([accuracy, precision, recall, FPR])
+        """
+        conf_mat_flatten = self.confusion_matrix.flatten()
+        accuracy = (conf_mat_flatten[0] + conf_mat_flatten[3]) / (np.sum(conf_mat_flatten))
+        precision = conf_mat_flatten[0] / (conf_mat_flatten[0] + conf_mat_flatten[2])
+        recall = conf_mat_flatten[0] / (conf_mat_flatten[0] + conf_mat_flatten[1])
+        FPR = conf_mat_flatten[2] / (conf_mat_flatten[2] + conf_mat_flatten[3])
+        return np.array([accuracy, precision, recall, FPR])
+
+    def get_projection_distances(self, topography):  # REVISE
+        """
+        Computes the projection distance between ROIs that are linked
+        to each other in the connectivity matrix
+        Args:
+            topography:
+
+        Returns:
+            The vector containing the projection distances
+        """
+        loc = np.transpose(np.where(self.conn_mat > 0))
+        dist = np.zeros(len(loc))
+        for i in range(len(loc)):
+            p1, p2 = topography[loc[i, 0]], topography[loc[i, 1]]
+            dist[i] = np.sqrt((p2[0] - p1[0]) ** 2 + (p2[1] - p1[1]) ** 2 + (p2[2] - p1[2]) ** 2)
+        return dist
+
+    ### Adding the ploting functions
+
+
+    def __repopulate(self, idx: np.ndarray) -> np.ndarray:
+        """
+        Repopulates the inferred connectivity matrix obtained from identified
+        ROIs selected from a data volume.
+        Only necessary for ease of connectivity matrix plotting on topography by
+        facilitating ease of pixel coordinate extractions.
+
+        Args:
+            idx: A vector of integer indexes of identified ROIs.
+
+        Returns:
+            Connectivity matrix with the shape of data population.
+        """
+        n_neur = len(idx)
+        inferred_ = np.zeros((n_neur, n_neur))
+        p = np.transpose(np.where(self.conn_mat != 0))
+        for i in range(len(p)):
+            inferred_[idx[p[i, 0]], idx[p[i, 1]]] = 1
+        return inferred_
+
+
+    def __get_cordinates(self, topography):
+        """
+        A func to make coordinates for each ROIs
+        Args:
+            inferred: shape [n_neur, n_neur] inferred matrix
+            topography: the position of ROIs given from data
+
+        Returns:
+            coordinates for each ROIs and the edges [t]
+        """
+        t = np.transpose(np.where(self.conn_mat > 0))
+        point_1 = np.zeros_like(t)
+        point_2 = np.zeros_like(t)
+
+        for i in range(len(t)):
+            point_1[i] = topography[t[i, 0], [0, 1]]
+            point_2[i] = topography[t[i, 1], [0, 1]]
+
+        x_val = []
+        y_val = []
+        z_val = []
+
+        for i in range(len(point_1)):
+            x_val.append([point_1[i, 0], point_2[i, 0]])
+            y_val.append([point_1[i, 1], point_2[i, 1]])
+            if topography.shape[1] == 2:
+                z_val.append([topography[t[i, 0], 2], topography[t[i, 1], 2]])
+
+        return x_val, y_val, z_val, t
+
+
+    def plot_conn_mat_on_topography(self, topography, arr):
+        """
+        3D visualisation of the connectivity matrix on the topography of fish
+
+        Args:
+            topography:
+            arr: A vector of
+
+        Returns:
+            3D visualisation of neural circuit
+        """
+        x_val, y_val, z_val, t = self.__get_cordinates(self, topography)
+        fig = plt.figure(figsize=(10, 10))
+        ax = fig.add_subplot(111, projection="3d")
+        ax.scatter(topography[:, 0], topography[:, 1], topography[:, 2], color='red', s=10, marker='.')
+        ax.scatter(topography[arr, 0], topography[arr, 1], topography[arr, 2], color='green', s=15, marker='*')
+        for a in range(len(x_val)):
+            ax.plot(x_val[a], y_val[a], z_val[a], lw=0.7, alpha=.7)
+        ax.grid(False)
+        ax.set_xlabel('X-axis')
+        ax.set_ylabel('Y-axis')
+        ax.set_zlabel('z-axis')
+        return fig
