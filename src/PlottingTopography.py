@@ -76,14 +76,16 @@ class Visualize_on_topography():
         plt.tight_layout()
 
 
-
-    def plot_connectivity_matrix_of_identified_ROIs_from_volume(inferred,centers,arr):
+    def plot_connectivity_matrix_of_identified_ROIs_from_volume(self, inferred,centers,arr):
         """
 
-        :param inferred:
-        :param centers:
-        :param arr:
-        :return:
+        Args:
+            inferred:
+            centers:
+            arr:
+
+        Returns:
+
         """
         x_val,y_val,z_val = self.extract_coordinates(inferred,centers)
         fig = plt.figure(figsize = (10,10))
