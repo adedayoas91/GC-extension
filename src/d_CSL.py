@@ -13,7 +13,6 @@ import matplotlib.colors as mcolors
 from mpl_toolkits import mplot3d
 import matplotlib.pyplot as plt
 from tqdm.notebook import tqdm
-import concurrent.futures
 
 
 class GcStar:
@@ -40,7 +39,6 @@ class GcStar:
             n_lags: maximum allowable lags 
             temporal: defines if data is time series or iid
         """
-        self.n_neur = None
         self.n_perm = n_perm
         self.n_pasts = n_pasts
         self.n_lags = n_lags
@@ -66,7 +64,8 @@ class GcStar:
         return self.n_lags
 
 
-    def shift_data(self, arr: np.ndarray) -> np.ndarray:   # , nn = None
+    @staticmethod
+    def __shift_data(arr: np.ndarray, n_past: int) -> np.ndarray:
         """
         Creates shifted versions of original data based on the number of pasts required.
         Concatenate the shifted arrays and return the new data.
@@ -76,56 +75,27 @@ class GcStar:
             with trimmed_arr = {X_{t}, X_{t-1}, \dots, X_{t-n}}^T
         Args:
             arr: original data recorded or obtained from experiments
-            n_pasts: number of pasts defining the number of shifts
+            n_past: number of pasts defining the number of shifts 
 
         Returns:
             Shifted data. 
         """
-        # if nn != None:
-        #     self.n_pasts = nn
 
-        self.data = arr.copy()
-        self.n_neur = self.data.shape[0]
-        if self.n_pasts == 0:
+        if n_past == 0:
             return arr
 
-        trimmed_arr = arr[:, self.n_pasts:]
-        for i in range(self.n_pasts):
-            idx1 = self.n_pasts - 1 - i
+        trimmed_arr = arr[:, n_past:]
+        for i in range(n_past):
+            idx1 = n_past - 1 - i
             idx2 = -i - 1
 
             trimmed_arr = np.r_[trimmed_arr, arr[:, idx1:idx2]]
-        self.shifted_data = trimmed_arr
+
         return trimmed_arr
 
 
-    def get_past(self, X: np.ndarray) -> np.ndarray:
-        """
-            Creates shifted versions of original data based on the number of pasts required.
-            Concatenate the shifted arrays and return the new data.
-        Args:
-            X: np.ndarray of shape (num_vars, num_timesteps)
-            n_past: int, number of timelags to consider
-
-        Returns:
-            np.ndarray of shape (n_past+1, num_vars, num_timesteps-n_past) with lags
-            increasing along the first axis.
-        """
-        assert len(X.shape) == 2, \
-            "X must be a 2-dimensional array"
-        if self.n_pasts == 0:
-            return X.copy().reshape(1, *X.shape)
-        past_matrices = []
-        for j in range(self.n_pasts + 1):
-            X_past_j = X[:, self.n_pasts - j:X.shape[1] - j]
-            past_matrices.append(X_past_j)
-        X_past = np.stack(past_matrices)
-        return X_past
-
-
-
-    # @jit(nopython=True)
-    def perm_test(self, x: np.ndarray, y: np.ndarray) -> float:
+    @jit(nopython=True)
+    def __perm_test(self, x: np.ndarray, y: np.ndarray) -> float:
         """
         Computes p_value of correlation of two iid generated variables.
         Args:
@@ -143,7 +113,7 @@ class GcStar:
                 np.random.shuffle(x_copy)
                 x_ = x_copy
             else:
-                x_ = np.roll(x_copy, np.random.randint(30, len(x_copy), 1))
+                x_ = np.roll(x_copy, np.random.randint(30, len(x)), 1)
 
             corr_2 = np.corrcoef(x_, y)[1, 0]
             if np.abs(corr_2) >= np.abs(corr_1):
@@ -151,7 +121,7 @@ class GcStar:
         return count / self.n_perm
 
 
-    def get_number_of_neurons(self) -> int:    #private
+    def __get_number_of_neurons(self, trimmed_arr: np.ndarray) -> int:
         """
         Computes the number of neurons/variables from the shape of the shifted data  
         Args:
@@ -159,11 +129,10 @@ class GcStar:
         Returns:
             number of variables/neurons in data
         """
-        self.n_neur = self.shifted_data.shape[0] // (self.n_pasts + 1)
-        return self.n_neur
+        self.n_neur = int(trimmed_arr.shape[0] / (self.n_pasts + 1))
 
 
-    def correlation_func(self) -> Tuple[np.ndarray, np.ndarray]:    #private
+    def __correlation_func(self, trimmed_arr: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         # name compute_dependence_with_corelation()
         Computes unconditional dependence of any variable pair using Pearson's correlation as dependence metric
@@ -177,19 +146,20 @@ class GcStar:
             pVal_corr: np.ndarray with shape as the correlation matrix.
                 contains the p-values of individual elements in the correlation matrix
         """
-        n = self.shifted_data.shape[0]
-        data = self.shifted_data
-        corr = np.abs(np.corrcoef(self.shifted_data))
-        pVal_corr = np.zeros((n, self.n_neur))
+
+        corr = np.abs(np.corrcoef(trimmed_arr))
+        n = trimmed_arr.shape[0]
+        n_neur = self.__get_number_of_neurons(trimmed_arr)
+        pVal_corr = np.zeros((n, n_neur))
 
         for i in range(n):
-            for j in range(self.n_neur):
-                pVal_corr[i, j] = self.perm_test(data[i, :], data[j, :])
+            for j in range(n_neur):
+                pVal_corr[i, j] = self.__perm_test(trimmed_arr[i, :], trimmed_arr[j, :])
 
-        return corr[:, :self.n_neur], pVal_corr
+        return corr[:, :n], pVal_corr
 
 
-    def __residual(self, x: np.ndarray, z: np.ndarray) -> np.ndarray:   #private
+    def __residual(self, x: np.ndarray, z: np.ndarray) -> np.ndarray:
         """
         Computes the residuals of a variable x by regressing a conditioning set z out of it
         Args:
@@ -207,99 +177,27 @@ class GcStar:
 
         return x - np.dot(coefs, z) - intercept
 
-    def get_conditioning_set(self, i: int, j: int) -> np.ndarray:
+
+    def __conditioning_set(self, i, j) -> np.ndarray:
         """
         Identifies the variables in the conditioning set for Granger causality implementation.
-
-        All indices in range(0, X.shape[0]) that are not `i_ind` are considered to
-        be indices of latent variables.
-
         Args:
             i: (int) index of the cause variable
-            j: (int) index of the effect variable
-
+            j: (int) index of effect variable
         Returns:
-            The conditioning set containing relevant variables of type np.ndarray
-            with 2-dimension, where each row represents a variable
-            conditioned variable, and each column includes the historical
-            values of said variable.
-
         """
-        """
-        All indices in range(0, X.shape[0]) that are not `i_ind` are considered to
-        be indices of latent variables.
+        n = self.data.shape[0]
+        k = i // n
 
-        :returns:
-        * np.ndarray of 2 dimensions, where each row represents a conditioned
-            variable, and each column includes the historical values of said
-            variable.
-        """
-        X = self.data.copy()
-        num_vars = self.n_neur
+        z_ = np.delete(self.shifted_data, np.r_[np.arange(k * n),
+                                                        [i]], axis=0)
+        y_ = self.__shift_data(self.data[j, :].reshape((1,
+                                        self.data.shape[1])), self.n_pasts)
+        z = np.r_[z_, y_[1:k]]
 
+        return z
 
-        j_ind = j
-        i_ind = i % num_vars
-        i_lag = i // num_vars
-
-
-        X_past = self.get_past(X)
-        # get the latent variable indices
-        all_indices = np.arange(num_vars)
-        ij_mask = np.isin(all_indices, [i_ind, j_ind])
-        z_indices = all_indices[~ij_mask]  # everything that isn't i or j is z
-        # `X_past` has shape (n_past, num_vars, X.shape[1]-n_past)
-
-        # From the independent variable, we want to return everything before but
-        # not including the "current" value at `i_lag`
-        i_past = X_past[i_lag + 1:, [i_ind], :]
-        # i_past shape (history up to i_lag, 1, X.shape[1]-n_past)
-
-        # For the latent variable, we want to return everything up to and at the
-        # same time as the independent variable
-        z_past = X_past[i_lag:, z_indices, :]
-        # z_past shape (history up to i_lag+1, X.shape[0]-2, X.shape[1]-n_past)
-
-        # For the dependent variable, we return all times in the past but not the
-        # current value
-        j_past = X_past[1:, [j_ind], :]
-        # j_past shape (history up to current time, 1, X.shape[1]-n_past)
-
-        # reshape everything to be compatible shape
-        i_past_reshaped = i_past.reshape(-1, i_past.shape[-1])
-        j_past_reshaped = j_past.reshape(-1, j_past.shape[-1])
-        z_past_reshaped = z_past.reshape(-1, z_past.shape[-1])
-        # stack it back into a matrix and return
-        return np.vstack([i_past_reshaped, j_past_reshaped, z_past_reshaped])
-
-    # def get_conditioning_set(self, i, j) -> np.ndarray:
-    #     """
-    #     Identifies the variables in the conditioning set for Granger causality implementation.
-    #
-    #     Args:
-    #         i: (int) index of the cause variable
-    #         j: (int) index of the effect variable
-    #
-    #     Returns:
-    #         np.ndarray: The conditioning set containing relevant variables.
-    #     """
-    #     data = self.data.copy()
-    #     if "shifted_data" not in self.__dir__():
-    #         self.shifted_data = self.shift_data(data)
-    #
-    #     k = i // self.n_neur
-    #
-    #     # Exclude variables 'i' and 'k * n' from the shifted_data
-    #     z_ = np.delete(self.shifted_data, np.r_[np.arange(k * self.n_neur),
-    #                                                         [i]], axis = 0)
-    #
-    #     # Shift the 'j' variable data and include it in the conditioning set
-    #     y_ = self.shift_data(data[j, :].reshape((1, data.shape[1])))
-    #     z = np.r_[z_, y_[1:k]]
-    #
-    #     return z
-
-    def inv_correlation_func(self) -> Tuple[np.ndarray, np.ndarray]:    #private
+    def __inv_correlation_func(self, trimmed_arr: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         Computes conditional dependency of any variable pair with Pearson's
          correlation as the dependence metric.
@@ -309,7 +207,6 @@ class GcStar:
         Args:
             trimmed_arr: This is the modified data obtained
                             from self.__shift_data()
-
         Returns:
             inv_corr: np.ndarray shape [trimmed_arr.shape[0], self.n_neur]
                 Correlation matrix of the data but done on the shifted data,
@@ -320,60 +217,45 @@ class GcStar:
                 contains the p-values of individual elements in the
                 correlation matrix
         """
-        n = self.shifted_data.shape[0]
-        data = self.shifted_data
+        n = trimmed_arr.shape[0]
+        n_neur = self.__get_number_of_neurons(trimmed_arr)
 
-        inv_corr = np.zeros((n, self.n_neur))
-        pVal_inv_corr = np.zeros((n, self.n_neur))
+        inv_corr = np.zeros((n, n_neur))
+        pVal_inv_corr = np.zeros((n, n_neur))
 
-        for i in range(n):
-            for j in range(self.n_neur):
-                x = data[i]
-                y = data[j]
-                z = self.get_conditioning_set(i, j)
+        for i in range(0, n):
+            for j in range(0, n_neur):
+                x = trimmed_arr[i]
+                y = trimmed_arr[j]
+                z = self.__conditioning_set(i, j)
 
                 x_res = self.__residual(x, z)
                 y_res = self.__residual(y, z)
 
                 inv_corr[i, j] = np.abs(np.corrcoef(x_res, y_res)[1, 0])
-                pVal_inv_corr[i, j] = self.perm_test(x_res, y_res)
+                pVal_inv_corr[i, j] = self.__perm_test(x_res, y_res)
         return inv_corr, pVal_inv_corr
 
 
     def fit(self, data: np.ndarray):
         """
-        Fits c-gc to data
-        Args:
+        Fits c-gc to data 
+        Args: 
             data: array-like of shape (n_neur, T)
                 where `n_neur` is the number of neurons or variables
-                and `T` is the time or number of samples
+                and `T` is the time or number of samples 
 
         Returns:
-            self: object
+            self : object
                 Returns the instance itself
         """
-        # Make a copy of the input data
         self.data = data.copy()
+        self.shifted_data = self.__shift_data(self.data, self.n_pasts)
+        self.corr_, self.pVal_corr_ = self.__correlation_func(
+                                                        self.shifted_data)
+        self.inv_corr_, self.pVal_inv_corr_ = self.__inv_correlation_func(
+                                                        self.shifted_data)
 
-        # Shift the data
-        self.shifted_data = self.shift_data(self.data)
-
-        # Create a ThreadPoolExecutor to parallelize the tasks
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            # Submit the correlation_func task
-            corr_future = executor.submit(self.correlation_func)
-            # Submit the inv_correlation_func task
-            inv_corr_future = executor.submit(self.inv_correlation_func)
-
-            # Wait for both tasks to complete and get their results
-            corr_, pVal_corr_ = corr_future.result()
-            inv_corr_, pVal_inv_corr_ = inv_corr_future.result()
-
-        # Assign the results
-        self.corr_, self.pVal_corr_ = corr_, pVal_corr_
-        self.inv_corr_, self.pVal_inv_corr_ = inv_corr_, pVal_inv_corr_
-
-        return self
 
     def get_connectivity_matrix(self, alpha: float = 0.05, beta: float = 0.001) -> np.ndarray:
         """
@@ -423,7 +305,7 @@ class GcStar:
     ### computing metrics
 
 
-    def compute_confusion_matrix(self, A: np.ndarray):
+    def __compute_confusion_matrix(self, A: np.ndarray):
         """
         Function to compute the performance of the algorithm.
         Computes the confusion matrix by comparing the ground truth
@@ -442,10 +324,7 @@ class GcStar:
         self.confusion_matrix = np.array([[TP, FN],
                                           [FP, TN]])
 
-        return self.confusion_matrix
-
-
-
+    @property
     def compute_metrics(self) -> np.ndarray:
         """
         Computes metrics from the confusion matrix.
@@ -456,19 +335,13 @@ class GcStar:
         conf_mat_flatten = self.confusion_matrix.flatten()
         accuracy = ((conf_mat_flatten[0] + conf_mat_flatten[3])
                                     / (np.sum(conf_mat_flatten)))
-
         precision = conf_mat_flatten[0] / (conf_mat_flatten[0] +
                                                 conf_mat_flatten[2])
-
         recall = conf_mat_flatten[0] / (conf_mat_flatten[0] +
                                                 conf_mat_flatten[1])
-
         FPR = conf_mat_flatten[2] / (conf_mat_flatten[2] +
                                                 conf_mat_flatten[3])
-
         return np.array([accuracy, precision, recall, FPR])
-
-
 
     def get_projection_distances(self, topography):  # REVISE
         """
@@ -492,6 +365,9 @@ class GcStar:
 
 
 
+
+
+
 # visualise
 class Visualize_on_topography(GcStar):
     def __init__(self, n_perm, n_pasts, n_lags) -> None:
@@ -499,7 +375,7 @@ class Visualize_on_topography(GcStar):
 
         self.topography = None
 
-    def __repopulate(self, pop_count: int, idx: np.ndarray) -> np.ndarray:
+    def __repopulate(self, idx: np.ndarray) -> np.ndarray:
         """
         Repopulates the inferred connectivity matrix obtained from identified
         ROIs selected from a data volume.
@@ -507,19 +383,16 @@ class Visualize_on_topography(GcStar):
         topography by facilitating ease of pixel coordinate extractions.
 
         Args:
-            pop_count: An integer value stating the number of ROIs in
-                the whole population of data where from the volume analysed
-                was selected
             idx: A vector of integer indexes of identified ROIs.
 
         Returns:
             Connectivity matrix with the shape of data population.
         """
-        inferred_ = np.zeros((pop_count, pop_count))
+        n_neur = len(idx)
+        inferred_ = np.zeros((n_neur, n_neur))
         p = np.transpose(np.where(self.conn_mat != 0))
         for i in range(len(p)):
-            inferred_[idx[p[i, 0]], idx[p[i, 1]]] = self.conn_mat[p[i]]
-
+            inferred_[idx[p[i, 0]], idx[p[i, 1]]] = 1
         return inferred_
 
 

@@ -32,13 +32,15 @@ class ICA_dec:
         self.mixing_mat = None
         self.mean = None
 
-    def __get_n_comps_with_eig_dec(self, var_to_keep: float) -> int:
+    def get_n_comps_with_eig_dec(self, var_to_keep: float) -> int:
         """
         Decompose data covariance matrix to compute the eigen values.
         The number of eigen values that expresses 95% of the data variance.
         The number can then be used as the number of components to fit ICA.
+
         Args:
             var_to_keep: The percentage of variance to keep
+
         Returns:
             The number of eigen values that make up var_to_keep
         """
@@ -73,7 +75,7 @@ class ICA_dec:
         """
         self.data = data.copy()
         if eig_dec == True:
-            self.n_comps = self.__get_n_comps_with_eig_dec(self, var_to_keep)
+            self.n_comps = self.get_n_comps_with_eig_dec(self)
         else:
             self.n_comps = self.data.shape[0]
         ica = FastICA(n_components = self.n_comps, tol = self.tolerance,
@@ -84,6 +86,8 @@ class ICA_dec:
         self.ICs = np.zeros((self.n_comps, self.data.shape[1]))
         for i in range(self.n_comps):
             self.ICs[i, :] = np.abs(np.fft.fft(self.ic_comps[:, i]))
+
+        return self
 
 
     # visualise
