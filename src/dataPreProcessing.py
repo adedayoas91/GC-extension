@@ -21,5 +21,3 @@ def replace_nan(arr: np.ndarray, bad_frames: np.ndarray, delete_frames: bool) ->
 
     return arr_copy
 
-
-
