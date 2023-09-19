@@ -59,6 +59,7 @@ class ICA_dec:
         plt.title('Eigen values')
         return i
 
+
     def fit(self, data, eig_dec: bool, var_to_keep=None):
         """
 
@@ -75,7 +76,7 @@ class ICA_dec:
         """
         self.data = data.copy()
         if eig_dec == True:
-            self.n_comps = self.get_n_comps_with_eig_dec(self)
+            self.n_comps = self.__get_n_comps_with_eig_dec(self, var_to_keep)
         else:
             self.n_comps = self.data.shape[0]
         ica = FastICA(n_components = self.n_comps, tol = self.tolerance,
@@ -86,8 +87,6 @@ class ICA_dec:
         self.ICs = np.zeros((self.n_comps, self.data.shape[1]))
         for i in range(self.n_comps):
             self.ICs[i, :] = np.abs(np.fft.fft(self.ic_comps[:, i]))
-
-        return self
 
 
     # visualise
