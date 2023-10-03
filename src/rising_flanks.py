@@ -272,6 +272,15 @@ class RisingFlanks:
         return x - np.dot(coefs, z) - intercept
 
 
+    def __ideal_lp(self, M):
+        amp = np.ones(M)
+        amp[int(self.f_c * M / self.f_s):-int(self.f_c * M / self.f_s)] = 0
+        phase = np.zeros(M)
+        H_f = amp * np.exp(1j * phase)
+        h_n = np.fft.fftshift(np.real(np.fft.ifft(H_f)))
+        return h_n
+
+
     def fit_rising(self, X: np.ndarray, idx: np.ndarray, verbose=1):
         """
         Fits c-gc to data

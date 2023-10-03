@@ -4,11 +4,11 @@
 import numpy as np
 
 
-class Compute_metrics():
-    def __init__(self, connectivity_matrix, A, n_past) -> None:
-        self.conn_mat = connectivity_matrix
-        self.ground_truth = A
-        self.number_of_past = n_past
+class Compute_metrics:
+    def __init__(self, conn_mat, A, n_pasts) -> None:
+        self.conn_mat = conn_mat
+        self.gt = A
+        self.n_pasts = n_pasts
 
 
     def compute_confusion_matrix(self):
@@ -18,7 +18,8 @@ class Compute_metrics():
         :param A: Ground truth connectivity matrix
         :return:
         """
-        A, inferred = self.ground_truth, self.connectivity_matrix
+        A = self.gt
+        inferred = self.conn_mat
         TP_inf = np.sum(np.logical_and(A != 0,inferred!=0))
         FN_inf = np.sum(np.logical_and(A != 0,inferred==0))
         FP_inf = np.sum(np.logical_and(A == 0,inferred!=0))

@@ -20,10 +20,12 @@ class ICA_dec:
         fit(self, data: np.ndarray)
         get_connectivity_matrix(self)
     """
-    def __init__(self, max_iter: int, tolerance: float, n_comps: int):
+    def __init__(self, max_iter: int, tolerance: float, n_comps: int, f_c: float, f_s: float):
         self.max_iter = max_iter
         self.tolerance = tolerance
         self.n_comps = n_comps
+        self.f_c = f_c
+        self.f_s = f_s
 
         self.data = None
 
@@ -32,7 +34,7 @@ class ICA_dec:
         self.mixing_mat = None
         self.mean = None
 
-    def get_n_comps_with_eig_dec(self, var_to_keep: float) -> int:
+    def get_n_comps_with_eig_dec(self, data: np.ndarray, var_to_keep: float) -> int:
         """
         Decompose data covariance matrix to compute the eigen values.
         The number of eigen values that expresses 95% of the data variance.
@@ -44,6 +46,7 @@ class ICA_dec:
         Returns:
             The number of eigen values that make up var_to_keep
         """
+        self.data = data.copy()
         cov = np.cov(self.data)
         eig_values, eig_vectors = np.linalg.eig(cov)
         var = 0
@@ -60,7 +63,16 @@ class ICA_dec:
         return i
 
 
-    def fit(self, data, eig_dec: bool, var_to_keep=None):
+    def ideal_lp(self, M) -> np.ndarray:
+        amp = np.ones(M)
+        amp[int(self.f_c * M / self.f_s):-int(self.f_c * M / self.f_s)] = 0
+        phase = np.zeros(M)
+        H_f = amp * np.exp(1j * phase)
+        h_n = np.fft.fftshift(np.real(np.fft.ifft(H_f)))
+        return h_n
+
+
+    def fit(self, data, var_to_keep, eig_dec: bool):
         """
 
         Args:
@@ -76,7 +88,7 @@ class ICA_dec:
         """
         self.data = data.copy()
         if eig_dec == True:
-            self.n_comps = self.__get_n_comps_with_eig_dec(self, var_to_keep)
+            self.n_comps = self.get_n_comps_with_eig_dec(var_to_keep)
         else:
             self.n_comps = self.data.shape[0]
         ica = FastICA(n_components = self.n_comps, tol = self.tolerance,
@@ -87,6 +99,8 @@ class ICA_dec:
         self.ICs = np.zeros((self.n_comps, self.data.shape[1]))
         for i in range(self.n_comps):
             self.ICs[i, :] = np.abs(np.fft.fft(self.ic_comps[:, i]))
+
+        return self
 
 
     # visualise
@@ -104,7 +118,7 @@ class ICA_dec:
 
 
     # clusterigs
-    def __cluster_ICs(self, n_clus, f_s):
+    def cluster_ICs(self, n_clus, f_s):
         """
         ICs (array ): The matrix of all ICs; shape [n_features, n_ICs].
         l (int): the length to which mat is truncated to cluster on
@@ -137,10 +151,10 @@ class ICA_dec:
     # plottings
     def plot_FT_spectrals(self, f_s, n_comps):
         """
-
+        Plots
         Args:
             Ics: all ICA returns indep components with returned
-                    shape [n_features,n_var]
+               shape [n_features,n_var]
             f_s: sampling frequency
             n_comps is the number of ICs
 
