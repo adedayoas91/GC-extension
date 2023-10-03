@@ -41,7 +41,7 @@ class GcStar:
             n_lags: maximum allowable lags 
             temporal: defines if data is time series or iid
         """
-        logging.basicConfig(level=logging.INFO)
+        #logging.basicConfig(level=logging.INFO)
         self.logger = None  # Initialize logger when needed
         # self.logger = logging.getLogger(__name__)
 
@@ -112,7 +112,7 @@ class GcStar:
         elif verbose == 2:
             log_level = logging.DEBUG  # Show detailed debug logs
 
-        logging.basicConfig(level=log_level)
+        logging.basicConfig(level=log_level, force=True)
 
 
     def shift_data(self, arr: np.ndarray) -> np.ndarray:   # , nn = None
