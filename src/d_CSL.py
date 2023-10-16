@@ -17,6 +17,7 @@ import concurrent.futures
 import logging
 import multiprocessing
 
+
 class GcStar:
     """
     Implementation of Granger causality from causal Bayesian network perspective. 
@@ -31,7 +32,6 @@ class GcStar:
     inv_corr_: Optional[np.ndarray]
     pVal_inv_corr_: Optional[np.ndarray]
 
-
     def __init__(self, n_perm: int, n_pasts: int, n_lags: int, temporal: bool, method: str):
         """
 
@@ -41,7 +41,7 @@ class GcStar:
             n_lags: maximum allowable lags 
             temporal: defines if data is time series or iid
         """
-        #logging.basicConfig(level=logging.INFO)
+        # logging.basicConfig(level=logging.INFO)
         self.logger = None  # Initialize logger when needed
         # self.logger = logging.getLogger(__name__)
 
@@ -65,7 +65,6 @@ class GcStar:
         self.inv_corr_ = None
         self.pVal_inv_corr_ = None
 
-
     def is_time_series(self) -> bool:
         """
             Collects a boolean (True or False)
@@ -74,13 +73,11 @@ class GcStar:
         """
         return self.temporal
 
-
     def get_number_of_lags(self) -> int:
         """
         Collects an integer valued maximum lag desired for use in the analysis
         """
         return self.n_lags
-
 
     def get_number_of_perms(self) -> int:
         """
@@ -88,7 +85,6 @@ class GcStar:
              for all p-value computations
         """
         return self.n_perm
-
 
     def get_number_of_pasts(self) -> int:
         """
@@ -102,7 +98,6 @@ class GcStar:
         """
         return self.method
 
-
     def _configure_logging(self, verbose):
         log_level = logging.WARNING  # Default to show only warnings and errors
 
@@ -114,8 +109,7 @@ class GcStar:
 
         logging.basicConfig(level=log_level, force=True)
 
-
-    def shift_data(self, arr: np.ndarray) -> np.ndarray:   # , nn = None
+    def shift_data(self, arr: np.ndarray) -> np.ndarray:  # , nn = None
         """
         Creates shifted versions of original data based on the number of pasts required.
         Concatenate the shifted arrays and return the new data.
@@ -146,7 +140,6 @@ class GcStar:
             trimmed_arr = np.r_[trimmed_arr, arr[:, idx1:idx2]]
         return trimmed_arr
 
-
     def get_past(self, X: np.ndarray) -> np.ndarray:
         """
             Creates shifted versions of original data based on the number of pasts required.
@@ -169,8 +162,6 @@ class GcStar:
             past_matrices.append(X_past_j)
         X_past = np.stack(past_matrices)
         return X_past
-
-
 
     # @jit(nopython=True)
     def perm_test(self, x: np.ndarray, y: np.ndarray) -> float:
@@ -198,8 +189,7 @@ class GcStar:
                 count += 1
         return count / self.n_perm
 
-
-    def get_number_of_neurons(self) -> int:    #private
+    def get_number_of_neurons(self) -> int:  # private
         """
         Computes the number of neurons/variables from the shape
         of the shifted data obtained from calling
@@ -214,8 +204,7 @@ class GcStar:
         self.n_neur = self.shifted_data.shape[0] // (self.n_pasts + 1)
         return self.n_neur
 
-
-    def correlation_func(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:    #private
+    def correlation_func(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:  # private
         """
         Computes unconditional dependence of any variable pair
         using Pearson's correlation as dependence metric
@@ -259,8 +248,7 @@ class GcStar:
 
         return corr[:, :self.n_neur], pVal_corr
 
-
-    def __residual(self, x: np.ndarray, z: np.ndarray) -> np.ndarray:   #private
+    def __residual(self, x: np.ndarray, z: np.ndarray) -> np.ndarray:  # private
         """
         Computes the residuals of a variable x by regressing a
         conditioning set z out of it
@@ -280,7 +268,6 @@ class GcStar:
         intercept = model.intercept_
 
         return x - np.dot(coefs, z) - intercept
-
 
     def get_conditioning_set(self, X: np.ndarray, i: int, j: int) -> np.ndarray:
         """
@@ -303,11 +290,9 @@ class GcStar:
         X_copy = X.copy()
         num_vars = self.n_neur
 
-
         j_ind = j
         i_ind = i % num_vars
         i_lag = i // num_vars
-
 
         X_past = self.get_past(X_copy)
 
@@ -339,8 +324,7 @@ class GcStar:
         z_past_reshaped = z_past.reshape(-1, z_past.shape[-1])
         # stack it back into a matrix and return
         return np.vstack([i_past_reshaped, j_past_reshaped,
-                                            z_past_reshaped])
-
+                          z_past_reshaped])
 
     def inv_correlation_func(self, X: np.ndarray,
                              method: str) -> Tuple[np.ndarray, np.ndarray]:
@@ -396,7 +380,7 @@ class GcStar:
                 if self.method == 'fcgc':
                     z = np.delete(data.copy(), [i, j], axis=0)
                 else:
-                    z = self.get_conditioning_set(self.data, i, j)
+                    z = self.get_cond_set(self.data, i, j)             #get_conditioning_set(self.data, i, j)
 
                 # compute residuals for both cause and effect
                 x_res = self.__residual(x, z)
@@ -411,7 +395,6 @@ class GcStar:
                                  f"({completion_percentage:.2f}% complete)")
 
         return inv_corr, pVal_inv_corr
-
 
     def fit(self, X: np.ndarray, verbose=1):
         """
@@ -454,11 +437,11 @@ class GcStar:
             # Submit the inv_correlation_func task
             self.logger.info("Starting inv_correlation_func")
             inv_corr_future = executor.submit(self.inv_correlation_func,
-                                                      X, method = self.method)
+                                              X, method=self.method)
 
             # Wait for both tasks to complete and get their results
             self.logger.info("Waiting for correlation_func and "
-                                    "inv_correlation_func to complete")
+                             "inv_correlation_func to complete")
             corr_, pVal_corr_ = corr_future.result()
             inv_corr_, pVal_inv_corr_ = inv_corr_future.result()
 
@@ -468,34 +451,14 @@ class GcStar:
 
         return self
 
-
     #####################################################################
-    # def get_cond_set(self, X: np.ndarray, i: int, j: int) -> np.ndarray:
-    #     """
-    #     Identifies the variables in the conditioning set for Granger causality implementation.
-    #
-    #     Args:
-    #         X: (np.ndarray) original data in shape [n_neur x Time]
-    #         i: (int) index of the cause variable
-    #         j: (int) index of the effect variable
-    #
-    #     Returns:
-    #         np.ndarray: The conditioning set containing relevant variables.
-    #     """
-    #     X_copy = X.copy()
-    #     k = i // self.n_neur
-    #
-    #     # Exclude variables 'i' and 'k * n' from the shifted_data
-    #     Z = self.shift_data(X_copy)
-    #     z_ = np.delete(Z, np.r_[np.arange(k * self.n_neur), [i]], axis = 0)
-    #
-    #     # Shift the 'j' variable data and include it in the conditioning set
-    #     y_ = self.shift_data(X_copy[j, :].reshape((1, X_copy.shape[1])))
-    #     z = np.r_[z_, y_[1:k]]
-    #
-    #     return z
+    def __mat_func(self, A, inf):
+        return (40 * np.logical_and(A != 0, inf != 0) +
+                30 * np.logical_and(A == 0, inf != 0) +
+                20 * np.logical_and(A != 0, inf == 0) +
+                10 * np.logical_and(A == 0, inf == 0))
 
-    def get_cond_set(self, i, j) -> np.ndarray:
+    def get_cond_set(self, X, i, j) -> np.ndarray:
         """
         Identifies the variables in the conditioning set for Granger causality implementation.
 
@@ -506,16 +469,15 @@ class GcStar:
         Returns:
             np.ndarray: The conditioning set containing relevant variables.
         """
-        data = self.data.copy()
-        k = i // self.n_neur
+        data = X.copy()
+        self.shifted_data = self.shift_data(data)
+        i_ = i % self.n_neur
+
+        # Exclude variables 'i', 'j' and futures of 'i' from the shifted_data
+        x_idx = [i_ + a * self.n_neur for a in range(i // self.n_neur)]
 
         # Exclude variables 'i' and 'k * n' from the shifted_data
-        z_ = np.delete(self.shifted_data,
-                       np.r_[np.arange(k * self.n_neur), [i]], axis = 0)
-
-        # Shift the 'j' variable data and include it in the conditioning set
-        y_ = self.shift_data(data[j, :].reshape((1, data.shape[1])))
-        z = np.r_[z_, y_[1:k]]
+        z = np.delete(self.shifted_data, np.r_[np.array(x_idx).astype(int), [i, j]], axis=0)
 
         return z
 
@@ -574,7 +536,6 @@ class GcStar:
 
         return inv_corr, pVal_inv_corr
 
-
     def fit_old(self, X: np.ndarray, verbose=1):
         """
         Fits c-gc to data
@@ -610,7 +571,7 @@ class GcStar:
 
             # Wait for both tasks to complete and get their results
             self.logger.info("Waiting for correlation_func and "
-                                    "inv_correlation_func to complete")
+                             "inv_correlation_func to complete")
             corr_, pVal_corr_ = corr_future.result()
             inv_corr_, pVal_inv_corr_ = inv_corr_future.result()
 
@@ -648,8 +609,6 @@ class GcStar:
 
         return count / self.n_perm
 
-
-
     def lp_filt(self) -> np.ndarray:
         amp = np.ones(self.M)
         amp[int(self.f_c * self.M / self.f_s):-int(self.f_c *
@@ -658,7 +617,6 @@ class GcStar:
         H_f = amp * np.exp(1j * phase)
         h_n = np.fft.fftshift(np.real(np.fft.ifft(H_f)))
         return h_n
-
 
     def get_rising_flanks(self, arr, f_c: float, f_s: float, M: int) -> Tuple[np.ndarray, np.ndarray]:
         self.f_c = f_c
@@ -669,7 +627,6 @@ class GcStar:
         j = np.diff(conv) > np.mean(np.diff(conv) > 0.5) / 10  # /5
         idx = np.where(j > 0)[0]
         return arr[idx], idx  # conv[idx] is the squashed vector  # arr ==> conv
-
 
     def fit_rising(self, X: np.ndarray, idx: np.ndarray, verbose=1):
         """
@@ -692,10 +649,10 @@ class GcStar:
         for i in tqdm(range(len(idx) * self.n_pasts)):
             for j in range(len(idx)):
                 if i < X.shape[0]:
-                    same_idx = sorted(set(idx[i]).intersection(idx[j]))   # combine()
+                    same_idx = sorted(set(idx[i]).intersection(idx[j]))  # combine()
                 else:
-                    i_= i%len(idx)
-                    same_idx = sorted(set(idx[i_]).intersection(idx[j])) # combine()
+                    i_ = i % len(idx)
+                    same_idx = sorted(set(idx[i_]).intersection(idx[j]))  # combine()
                 if len(same_idx) > 0.25 * len(same_idx):
                     dat = self.shift_data(X[:, same_idx])
                     corr[i, j] = np.abs(np.corrcoef(dat[i], dat[j])[1, 0])
@@ -709,22 +666,23 @@ class GcStar:
                     x_ = self.__residual(x, z)
                     y_ = self.__residual(y, z)
 
-                    inv_corr[i, j] = np.abs(np.corrcoef(x_, y_)[1,0])
+                    inv_corr[i, j] = np.abs(np.corrcoef(x_, y_)[1, 0])
                     pVal_inv_corr[i, j] = self.__perm_test_(x_, y_)
 
                 else:
-                    corr[i,j], pVal_corr[i,j] = 0, 1
-                    inv_corr[i,j], pVal_inv_corr[i,j] = 0, 1
+                    corr[i, j], pVal_corr[i, j] = 0, 1
+                    inv_corr[i, j], pVal_inv_corr[i, j] = 0, 1
 
         self.corr_, self.pVal_corr_ = corr, pVal_corr
         self.inv_corr_, self.pVal_inv_corr_ = inv_corr, pVal_inv_corr
 
         return self
 
-###############################################################################
+    ###############################################################################
 
-    def plot_extended_connectivity_matrix(self, alpha: float = 0.01,
-                                        beta: float = 0.001):
+    def plot_extended_connectivity_matrix(self,
+                                          alpha: float = 0.01,
+                                          beta: float = 0.001):
         """
         Plots connectivity matrix inferred into different matrices
         of corresponding pasts
@@ -751,11 +709,16 @@ class GcStar:
                  b * self.n_neur:(b + 1) * self.n_neur]
             axs[a].imshow(jj)
             axs[a].axis('off')
+            # if not simulation:
+            #     axs[a].imshow(jj)
+            #     axs[a].axis('off')
+            # axs[a].imshow(self.__mat_func(jj, A.T))
+            # axs[a].axis('off')
         plt.tight_layout()
 
-
-    def get_connectivity_matrix(self, alpha: float = 0.01,
-                                        beta: float = 0.001) -> np.ndarray:
+    def get_connectivity_matrix(self, simulation: bool,
+                                alpha: float = 0.01,
+                                beta: float = 0.001) -> np.ndarray:
         """
         Computes the weighted connectivity matrix from significant
         conditional and unconditional links based on the maximum
@@ -787,21 +750,26 @@ class GcStar:
         # merging results for the GC order used
         for a in range(self.n_pasts + 1):
             all_.append(inferred[a * n_neur:(a + 1) * n_neur,
-                                        b * n_neur:(b + 1) * n_neur])
+                        b * n_neur:(b + 1) * n_neur])
 
-        self.conn_mat = all_[0]
+        if not simulation:
+            self.conn_mat = all_[0]
 
-        for i in range(1, self.n_lags+1):
+            for i in range(1, self.n_lags + 1):
+                self.conn_mat = np.logical_or(self.conn_mat, all_[i])
+
+        self.conn_mat = all_[1]
+
+        for i in range(1, self.n_lags + 1):
             self.conn_mat = np.logical_or(self.conn_mat, all_[i])
 
+
         # multiplied with correlation to return connections strength
-        self.conn_mat = np.multiply(self.corr_[:n_neur, :], self.conn_mat)   # .T
-        # remove self connections (diagonal connections)
-        # np.fill_diagonal(self.conn_mat, 0)
+        self.conn_mat = np.multiply(self.corr_[:n_neur, :], self.conn_mat)
+
+
 
         return self.conn_mat
-
-
 
     ### computing metrics
 
@@ -830,7 +798,6 @@ class GcStar:
 
         return self.confusion_matrix
 
-
     def compare_with_GT(self, A: np.ndarray,
                         inf: np.ndarray, simulation: bool) -> np.ndarray:
         """
@@ -846,11 +813,9 @@ class GcStar:
         if simulation:
             A = A.T
         return (40 * np.logical_and(A != 0, inf != 0) +
-                    30 * np.logical_and(A == 0, inf != 0) +
-                    20 * np.logical_and(A != 0, inf == 0) +
-                    10 * np.logical_and(A == 0, inf == 0))
-
-
+                30 * np.logical_and(A == 0, inf != 0) +
+                20 * np.logical_and(A != 0, inf == 0) +
+                10 * np.logical_and(A == 0, inf == 0))
 
     def compute_metrics(self) -> np.ndarray:
         """
@@ -860,22 +825,20 @@ class GcStar:
             in the order np.array([accuracy, precision, recall, FPR])
         """
         conf_mat_flatten = self.confusion_matrix.flatten()
-        
+
         accuracy = ((conf_mat_flatten[0] + conf_mat_flatten[3])
-                                    / (np.sum(conf_mat_flatten)))
+                    / (np.sum(conf_mat_flatten)))
 
         precision = conf_mat_flatten[0] / (conf_mat_flatten[0] +
-                                                conf_mat_flatten[2])
+                                           conf_mat_flatten[2])
 
         recall = conf_mat_flatten[0] / (conf_mat_flatten[0] +
-                                                conf_mat_flatten[1])
+                                        conf_mat_flatten[1])
 
         FPR = conf_mat_flatten[2] / (conf_mat_flatten[2] +
-                                                conf_mat_flatten[3])
+                                     conf_mat_flatten[3])
 
         return np.array([accuracy, precision, recall, FPR])
-
-
 
     def get_projection_distances(self, topography):  # REVISE
         """
@@ -896,8 +859,6 @@ class GcStar:
         return dist
 
 
-
-
 ### Ploting tools
 
 class Visualize_on_topography(GcStar):
@@ -905,10 +866,8 @@ class Visualize_on_topography(GcStar):
         super().__init__(n_perm, n_pasts, n_lags)
 
         self.topography = None
-        self.inf = None   # super().get_connectivity_matrix()
+        self.inf = None  # super().get_connectivity_matrix()
         self.roi_count = None
-
-
 
     def repopulate(self, roi_idx: np.ndarray) -> np.ndarray:
         """
@@ -931,10 +890,9 @@ class Visualize_on_topography(GcStar):
         inferred_ = np.zeros((self.roi_count, self.roi_count))
         p = np.transpose(np.where(self.inf != 0))
         for i in range(p.shape[0]):
-            inferred_[roi_idx[p[i, 0]], roi_idx[p[i, 1]]] = 1   # self.inf[p[i]]
+            inferred_[roi_idx[p[i, 0]], roi_idx[p[i, 1]]] = 1  # self.inf[p[i]]
 
         return inferred_
-
 
     def get_cordinates(self, inferred_: np.ndarray):
         """
@@ -964,15 +922,13 @@ class Visualize_on_topography(GcStar):
             y_val.append([point_1[i, 1], point_2[i, 1]])
             if self.topography.shape[1] == 3:
                 z_val.append([self.topography[t[i, 0], 2],
-                                    self.topography[t[i, 1], 2]])
+                              self.topography[t[i, 1], 2]])
 
         return x_val, y_val, z_val, t
 
-
-
     def plot_conn_mat_on_topography(self,
                                     topography: np.ndarray,
-                                    inferred:np.ndarray,
+                                    inferred: np.ndarray,
                                     roi_idx: np.ndarray):
         """
         3D visualisation of the connectivity matrix on the topography of fish
@@ -989,7 +945,7 @@ class Visualize_on_topography(GcStar):
         self.roi_count = topography.shape[1]
 
         # repopulate the inferred matrix into a bigger matrix
-        inferred_rep = self.repopulate(roi_idx= roi_idx)
+        inferred_rep = self.repopulate(roi_idx=roi_idx)
         # extract coordinates for each ROIs
         x_val, y_val, z_val, t = self.get_cordinates(inferred_rep)
         # visualize in 3-dimensions
@@ -1006,8 +962,6 @@ class Visualize_on_topography(GcStar):
         ax.set_ylabel('Y-axis')
         ax.set_zlabel('z-axis')
         return fig
-
-
 
     def plot_correlation_of_ROIs_with_behavior(self,
                                                corr_with_beh: np.ndarray):
@@ -1027,14 +981,12 @@ class Visualize_on_topography(GcStar):
         fig = plt.figure(figsize=(10, 6))
         if self.topography.shape[1] == 2:
             plt.scatter(self.topography[:, 0], self.topography[:, 1],
-                        marker = 'o', s = 10, c = corr_with_beh,
-                        cmap = 'seismic')
+                        marker='o', s=10, c=corr_with_beh,
+                        cmap='seismic')
             plt.colorbar()
         else:
-            ax = fig.add_subplot(111, projection = "3d")
+            ax = fig.add_subplot(111, projection="3d")
             p = ax.scatter(self.topography[:, 0], self.topography[:, 1],
-                            self.topography[:, 2], marker = 'o', s = 10,
-                            c = corr_with_beh, cmap = 'seismic')
+                           self.topography[:, 2], marker='o', s=10,
+                           c=corr_with_beh, cmap='seismic')
             fig.colorbar(p)
-
-
