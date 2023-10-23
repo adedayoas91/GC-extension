@@ -52,71 +52,6 @@ def prep_data(X, nn):
     return X_
 
 
-
-@njit   # (nopython=True)
-def get_cond_set(X, n_past, i, j):
-    data = X.copy()
-    n_neur = data.shape[0]
-    shifted_data = prep_data(data, n_past)
-    i_ = i % n_neur
-
-    x_idx = np.array([i_ + a * n_neur for a in range(i // n_neur)], dtype=np.int64)
-    to_delete = np.concatenate((x_idx, np.array([i, j], dtype=np.int64)))
-
-    z = np.delete(shifted_data, to_delete, axis=0)
-
-    return z
-
-
-
-# @jit(nopython=True)
-# def residual(x, z):
-#     n, m = z.shape
-#     coefs = np.empty(m)
-#     intercept = 0.0
-
-#     for i in range(m):
-#         sum_xz = 0.0
-#         sum_zz = 0.0
-#         for j in range(n):
-#             sum_xz += x[j] * z[j, i]
-#             sum_zz += z[j, i] * z[j, i]
-#         coefs[i] = sum_xz / sum_zz
-#         intercept += coefs[i] * z[0, i]
-
-#     return x - np.dot(coefs, z.T) - intercept
-
-
-
-
-# # @jit(nopython=True)
-# def get_cond_set(X: np.ndarray, n_past: int, i: int, j: int) -> np.ndarray:
-#     """
-#     Identifies the variables in the conditioning set for
-#      Granger causality implementation.
-
-#     Args:
-#         i: (int) index of the cause variable
-#         j: (int) index of the effect variable
-
-#     Returns:
-#         np.ndarray: The conditioning set containing relevant variables.
-#     """
-#     data = X.copy()
-#     n_neur = data.shape[0]
-#     shifted_data = prep_data(data, n_past)
-#     i_ = i % n_neur
-
-#     # Exclude variables 'i', 'j' and futures of 'i' from the shifted_data
-#     x_idx = [i_ + a * n_neur for a in range(i // n_neur)]
-
-#     # Exclude variables 'i' and 'k * n' from the shifted_data
-#     z = np.delete(shifted_data,
-#                   np.r_[np.array(x_idx).astype(int), [i, j]], axis=0)
-
-#     return z
-
-
 # @jit(nopython=True)
 def residual(x: np.ndarray, z: np.ndarray) -> np.ndarray:  # private
     """
@@ -138,8 +73,6 @@ def residual(x: np.ndarray, z: np.ndarray) -> np.ndarray:  # private
     intercept = model.intercept_
 
     return x - np.dot(coefs, z) - intercept
-
-
 
 
 class GcStar:
@@ -409,6 +342,32 @@ class GcStar:
         return np.vstack([i_past_reshaped, j_past_reshaped,
                           z_past_reshaped])
 
+
+    def get_cond_set(self, X, i, j) -> np.ndarray:
+        """
+        Identifies the variables in the conditioning set for Granger causality implementation.
+
+        Args:
+            i: (int) index of the cause variable
+            j: (int) index of the effect variable
+
+        Returns:
+            np.ndarray: The conditioning set containing relevant variables.
+        """
+        data = X.copy()
+        self.shifted_data = self.shift_data(data)
+        i_ = i % self.n_neur
+
+        # Exclude variables 'i', 'j' and futures of 'i' from the shifted_data
+        x_idx = [i_ + a * self.n_neur for a in range(i // self.n_neur)]
+
+        # Exclude variables 'i' and 'k * n' from the shifted_data
+        z = np.delete(self.shifted_data, np.r_[np.array(x_idx).astype(int), [i, j]], axis=0)
+
+        return z
+
+
+
     def inv_correlation_func(self, X: np.ndarray,
                              method: str) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -463,8 +422,8 @@ class GcStar:
                 if self.method == 'fcgc':
                     z = np.delete(data.copy(), [i, j], axis=0)
                 else:
-                    z = get_cond_set(self.data, self.n_pasts, i, j)
-                    #  self.get_cond_set(self.data, i, j)
+                    z = self.get_cond_set(self.data, i, j)
+                    #get_cond_set(self.data, self.n_pasts, i, j)
                     # #get_conditioning_set(self.data, i, j)
 
                 # compute residuals for both cause and effect
