@@ -1,6 +1,8 @@
+import mat73
 import numpy as np
 import pickle
 from pathlib import Path
+import scipy
 
 
 def load_data(file_path: str) -> np.ndarray:
@@ -25,6 +27,8 @@ def load_data(file_path: str) -> np.ndarray:
     elif file_type == '.pickle':
         with open(file_path, 'rb') as file:
             data_array = pickle.load(file)
+    elif file_type == '.mat':
+        data_array = scipy.io.loadmat(file_path)
     else:
         raise ValueError(f"Unsupported file type: {file_type}")
 

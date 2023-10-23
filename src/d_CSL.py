@@ -18,6 +18,130 @@ import logging
 import multiprocessing
 
 
+@jit(nopython=True)
+def perm_test(x, y, n_perm):
+    """
+    Computes p_value of correlation of two iid generated variables.
+    Args:
+        x: (array like, vector): Realisation of a variable x
+        y: (array like, vector): Realisation of a variable y
+    Returns:
+        p_value
+    """
+    count = 0
+    corr_1 = np.corrcoef(x, y)[1, 0]
+    x_copy = x.copy()
+    for j in range(n_perm):
+        # x_ = np.roll(x_copy, np.random.randint(30, x_copy.size), 0)
+        l = np.random.randint(30, x.size)
+        x_ = np.hstack((x_copy[l:], x_copy[:l]))
+        corr_2 = np.corrcoef(x_, y)[1, 0]
+        if np.abs(corr_2) >= np.abs(corr_1):
+            count += 1
+    return count / n_perm
+
+
+@jit(nopython=True)
+def prep_data(X, nn):
+    if nn == 0:
+        return X
+    X_ = X[:, nn:]
+    for i in range(nn):
+        idx1, idx2 = nn - 1 - i, -i - 1
+        X_ = np.column_stack((X_, X[:, idx1:idx2]))
+    return X_
+
+
+
+@njit   # (nopython=True)
+def get_cond_set(X, n_past, i, j):
+    data = X.copy()
+    n_neur = data.shape[0]
+    shifted_data = prep_data(data, n_past)
+    i_ = i % n_neur
+
+    x_idx = np.array([i_ + a * n_neur for a in range(i // n_neur)], dtype=np.int64)
+    to_delete = np.concatenate((x_idx, np.array([i, j], dtype=np.int64)))
+
+    z = np.delete(shifted_data, to_delete, axis=0)
+
+    return z
+
+
+
+# @jit(nopython=True)
+# def residual(x, z):
+#     n, m = z.shape
+#     coefs = np.empty(m)
+#     intercept = 0.0
+
+#     for i in range(m):
+#         sum_xz = 0.0
+#         sum_zz = 0.0
+#         for j in range(n):
+#             sum_xz += x[j] * z[j, i]
+#             sum_zz += z[j, i] * z[j, i]
+#         coefs[i] = sum_xz / sum_zz
+#         intercept += coefs[i] * z[0, i]
+
+#     return x - np.dot(coefs, z.T) - intercept
+
+
+
+
+# # @jit(nopython=True)
+# def get_cond_set(X: np.ndarray, n_past: int, i: int, j: int) -> np.ndarray:
+#     """
+#     Identifies the variables in the conditioning set for
+#      Granger causality implementation.
+
+#     Args:
+#         i: (int) index of the cause variable
+#         j: (int) index of the effect variable
+
+#     Returns:
+#         np.ndarray: The conditioning set containing relevant variables.
+#     """
+#     data = X.copy()
+#     n_neur = data.shape[0]
+#     shifted_data = prep_data(data, n_past)
+#     i_ = i % n_neur
+
+#     # Exclude variables 'i', 'j' and futures of 'i' from the shifted_data
+#     x_idx = [i_ + a * n_neur for a in range(i // n_neur)]
+
+#     # Exclude variables 'i' and 'k * n' from the shifted_data
+#     z = np.delete(shifted_data,
+#                   np.r_[np.array(x_idx).astype(int), [i, j]], axis=0)
+
+#     return z
+
+
+# @jit(nopython=True)
+def residual(x: np.ndarray, z: np.ndarray) -> np.ndarray:  # private
+    """
+    Computes the residuals of a variable x by regressing a
+    conditioning set z out of it
+
+    Args:
+        x: Variable in question to regress out the conditioning set
+        z: Conditioning set based on whether c-GC or fc-GC was used.
+
+    return:
+        the residual of x conditioned on z
+    """
+
+    model = LinearRegression(fit_intercept=True)
+    model.fit(z.T, x)
+
+    coefs = model.coef_
+    intercept = model.intercept_
+
+    return x - np.dot(coefs, z) - intercept
+
+
+
+
 class GcStar:
     """
     Implementation of Granger causality from causal Bayesian network perspective. 
@@ -92,7 +216,7 @@ class GcStar:
         """
         return self.n_pasts
 
-    def get_conditioning_set_method(self) -> int:
+    def get_conditioning_set_method(self) -> str:
         """
         Defines which conditioning set method to use
         """
@@ -163,31 +287,8 @@ class GcStar:
         X_past = np.stack(past_matrices)
         return X_past
 
-    # @jit(nopython=True)
-    def perm_test(self, x: np.ndarray, y: np.ndarray) -> float:
-        """
-        Computes p_value of correlation of two iid generated variables.
-        Args:
-            x: (array like, vector): Realisation of a variable x
-            y: (array like, vector): Realisation of a variable y
-        Returns:
-            p_value
-        """
-        count = 0
-        corr_1 = np.corrcoef(x, y)[1, 0]
+    # @staticmethod
 
-        for j in range(self.n_perm):
-            x_copy = np.copy(x)
-            if not self.temporal:
-                np.random.shuffle(x_copy)
-                x_ = x_copy
-            else:
-                x_ = np.roll(x_copy, np.random.randint(30, len(x_copy), 1))
-
-            corr_2 = np.corrcoef(x_, y)[1, 0]
-            if np.abs(corr_2) >= np.abs(corr_1):
-                count += 1
-        return count / self.n_perm
 
     def get_number_of_neurons(self) -> int:  # private
         """
@@ -204,6 +305,8 @@ class GcStar:
         self.n_neur = self.shifted_data.shape[0] // (self.n_pasts + 1)
         return self.n_neur
 
+    # @staticmethod
+    # @jit(nopython=True)
     def correlation_func(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:  # private
         """
         Computes unconditional dependence of any variable pair
@@ -239,7 +342,7 @@ class GcStar:
         # compute and populate p-value matrix
         for i in range(n):
             for j in range(self.n_neur):
-                pVal_corr[i, j] = self.perm_test(data[i, :], data[j, :])
+                pVal_corr[i, j] = perm_test(data[i, :], data[j, :], self.n_perm)
 
                 current_step += 1
                 completion_percentage = (current_step / total_steps) * 100
@@ -248,26 +351,6 @@ class GcStar:
 
         return corr[:, :self.n_neur], pVal_corr
 
-    def __residual(self, x: np.ndarray, z: np.ndarray) -> np.ndarray:  # private
-        """
-        Computes the residuals of a variable x by regressing a
-        conditioning set z out of it
-
-        Args:
-            x: Variable in question to regress out the conditioning set
-            z: Conditioning set based on whether c-GC or fc-GC was used.
-
-        return:
-            the residual of x conditioned on z
-        """
-
-        model = LinearRegression(fit_intercept=True)
-        model.fit(z.T, x)
-
-        coefs = model.coef_
-        intercept = model.intercept_
-
-        return x - np.dot(coefs, z) - intercept
 
     def get_conditioning_set(self, X: np.ndarray, i: int, j: int) -> np.ndarray:
         """
@@ -380,14 +463,16 @@ class GcStar:
                 if self.method == 'fcgc':
                     z = np.delete(data.copy(), [i, j], axis=0)
                 else:
-                    z = self.get_cond_set(self.data, i, j)             #get_conditioning_set(self.data, i, j)
+                    z = get_cond_set(self.data, self.n_pasts, i, j)
+                    #  self.get_cond_set(self.data, i, j)
+                    # #get_conditioning_set(self.data, i, j)
 
                 # compute residuals for both cause and effect
-                x_res = self.__residual(x, z)
-                y_res = self.__residual(y, z)
+                x_res = residual(x, z)
+                y_res = residual(y, z)
                 # check dependence of the two residuals and the p-value
                 inv_corr[i, j] = np.abs(np.corrcoef(x_res, y_res)[1, 0])
-                pVal_inv_corr[i, j] = self.perm_test(x_res, y_res)
+                pVal_inv_corr[i, j] = perm_test(x_res, y_res, self.n_perm)
 
                 current_step += 1
                 completion_percentage = (current_step / total_steps) * 100
@@ -458,128 +543,6 @@ class GcStar:
                 20 * np.logical_and(A != 0, inf == 0) +
                 10 * np.logical_and(A == 0, inf == 0))
 
-    def get_cond_set(self, X, i, j) -> np.ndarray:
-        """
-        Identifies the variables in the conditioning set for Granger causality implementation.
-
-        Args:
-            i: (int) index of the cause variable
-            j: (int) index of the effect variable
-
-        Returns:
-            np.ndarray: The conditioning set containing relevant variables.
-        """
-        data = X.copy()
-        self.shifted_data = self.shift_data(data)
-        i_ = i % self.n_neur
-
-        # Exclude variables 'i', 'j' and futures of 'i' from the shifted_data
-        x_idx = [i_ + a * self.n_neur for a in range(i // self.n_neur)]
-
-        # Exclude variables 'i' and 'k * n' from the shifted_data
-        z = np.delete(self.shifted_data, np.r_[np.array(x_idx).astype(int), [i, j]], axis=0)
-
-        return z
-
-
-    def inv_correlation_old(self,
-                            X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Computes conditional dependency of any variable pair with
-         Pearson's correlation as the dependence metric.
-         It computes the residual of any pair in question with the
-         conditioning set of choice (c-GC or fc-GC style).
-
-        Args:
-            trimmed_arr: This is the modified data obtained
-                            from self.__shift_data()
-
-        Returns:
-            inv_corr: np.ndarray shape [trimmed_arr.shape[0], self.n_neur]
-                Correlation matrix of the data but done on the shifted data,
-                however, we select the portion that is most relevant for us
-                by slicing the matrix into shape required
-
-            pVal_inv_corr: np.ndarray with shape as the correlation matrix
-                contains the p-values of individual elements in the
-                correlation matrix
-        """
-        X_copy = X.copy()
-        self.n_neur = X_copy.shape[0]
-        data = self.shift_data(X_copy)
-        n = data.shape[0]
-
-        inv_corr = np.zeros((n, self.n_neur))
-        pVal_inv_corr = np.zeros((n, self.n_neur))
-
-        total_steps = n * self.n_neur
-        current_step = 0
-
-        for i in range(n):
-            for j in range(self.n_neur):
-                x = data[i]
-                y = data[j]
-                self.data = self.data.copy()
-
-                z = self.get_cond_set(X, i, j)
-
-                x_res = self.__residual(x, z)
-                y_res = self.__residual(y, z)
-
-                inv_corr[i, j] = np.abs(np.corrcoef(x_res, y_res)[1, 0])
-                pVal_inv_corr[i, j] = self.perm_test(x_res, y_res)
-
-                current_step += 1
-                completion_percentage = (current_step / total_steps) * 100
-                self.logger.info(f"Step {current_step}/{total_steps} "
-                                 f"({completion_percentage:.2f}% complete)")
-
-        return inv_corr, pVal_inv_corr
-
-    def fit_old(self, X: np.ndarray, verbose=1):
-        """
-        Fits c-gc to data
-
-        Args:
-            data: array-like of shape (n_neur, T)
-                where `n_neur` is the number of neurons or variables
-                and `T` is the time or number of samples
-
-        Returns:
-            self: object
-                Returns the instance itself
-        """
-        # Make a copy of the input data
-        self.data = X.copy()
-
-        # Shift the data
-        self.shifted_data = self.shift_data(self.data)
-
-        # Set up logging
-        self._configure_logging(verbose)
-        self.logger = logging.getLogger(__name__)
-
-        # Create a ThreadPoolExecutor to parallelize the tasks
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            # Submit the correlation_func task
-            self.logger.info("Starting correlation_func")
-            corr_future = executor.submit(self.correlation_func, X)
-
-            # Submit the inv_correlation_func task
-            self.logger.info("Starting inv_correlation_func")
-            inv_corr_future = executor.submit(self.inv_correlation_old, X)
-
-            # Wait for both tasks to complete and get their results
-            self.logger.info("Waiting for correlation_func and "
-                             "inv_correlation_func to complete")
-            corr_, pVal_corr_ = corr_future.result()
-            inv_corr_, pVal_inv_corr_ = inv_corr_future.result()
-
-        # Assign the results
-        self.corr_, self.pVal_corr_ = corr_, pVal_corr_
-        self.inv_corr_, self.pVal_inv_corr_ = inv_corr_, pVal_inv_corr_
-
-        return self
 
     ###########################################################################
 
