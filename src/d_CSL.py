@@ -168,7 +168,7 @@ class GcStar:
 
         logging.basicConfig(level=log_level, force=True)
 
-    def shift_data(self, arr: np.ndarray) -> np.ndarray:  # , nn = None
+    def shift_data(self, arr: np.ndarray) -> np.ndarray:
         """
         Creates shifted versions of original data based on the number of pasts required.
         Concatenate the shifted arrays and return the new data.
@@ -183,8 +183,6 @@ class GcStar:
         Returns:
             Shifted data. 
         """
-        # if nn != None:
-        #     self.n_pasts = nn
 
         # self.data = arr.copy()
         self.n_neur = arr.shape[0]
