@@ -41,15 +41,17 @@ def perm_test(x, y, n_perm):
     return count / n_perm
 
 
-@jit(nopython=True)
+#@jit(nopython=True)
 def prep_data(X, nn):
-    if nn == 0:
-        return X
-    X_ = X[:, nn:]
-    for i in range(nn):
-        idx1, idx2 = nn - 1 - i, -i - 1
-        X_ = np.column_stack((X_, X[:, idx1:idx2]))
-    return X_
+    if nn == None or nn == 0:
+        X_ = X
+        return X_
+    else:
+        X_ = X[:,(nn):]
+        for i in range(nn):
+            idx1, idx2 = nn-1-i,-i-1
+            X_ = np.r_[X_, X[:,idx1:idx2]]
+        return X_
 
 
 # @jit(nopython=True)
@@ -149,7 +151,7 @@ class GcStar:
         """
         return self.n_pasts
 
-    def get_conditioning_set_method(self) -> str:
+    def get_method(self) -> str:
         """
         Defines which conditioning set method to use
         """
@@ -197,30 +199,30 @@ class GcStar:
             trimmed_arr = np.r_[trimmed_arr, arr[:, idx1:idx2]]
         return trimmed_arr
 
-    def get_past(self, X: np.ndarray) -> np.ndarray:
-        """
-            Creates shifted versions of original data based on the number of pasts required.
-            Concatenate the shifted arrays and return the new data.
-        Args:
-            X: np.ndarray of shape (num_vars, num_timesteps)
-            n_past: int, number of timelags to consider
 
-        Returns:
-            np.ndarray of shape (n_past+1, num_vars, num_timesteps-n_past) with lags
-            increasing along the first axis.
-        """
-        assert len(X.shape) == 2, \
-            "X must be a 2-dimensional array"
-        if self.n_pasts == 0:
-            return X.copy().reshape(1, *X.shape)
-        past_matrices = []
-        for j in range(self.n_pasts + 1):
-            X_past_j = X[:, self.n_pasts - j:X.shape[1] - j]
-            past_matrices.append(X_past_j)
-        X_past = np.stack(past_matrices)
-        return X_past
+    # def get_past(self, X: np.ndarray) -> np.ndarray:
+    #     """
+    #         Creates shifted versions of original data based on the number of pasts required.
+    #         Concatenate the shifted arrays and return the new data.
+    #     Args:
+    #         X: np.ndarray of shape (num_vars, num_timesteps)
+    #         n_past: int, number of timelags to consider
+    #
+    #     Returns:
+    #         np.ndarray of shape (n_past+1, num_vars, num_timesteps-n_past) with lags
+    #         increasing along the first axis.
+    #     """
+    #     assert len(X.shape) == 2, \
+    #         "X must be a 2-dimensional array"
+    #     if self.n_pasts == 0:
+    #         return X.copy().reshape(1, *X.shape)
+    #     past_matrices = []
+    #     for j in range(self.n_pasts + 1):
+    #         X_past_j = X[:, self.n_pasts - j:X.shape[1] - j]
+    #         past_matrices.append(X_past_j)
+    #     X_past = np.stack(past_matrices)
+    #     return X_past
 
-    # @staticmethod
 
 
     def get_number_of_neurons(self) -> int:  # private
@@ -238,8 +240,7 @@ class GcStar:
         self.n_neur = self.shifted_data.shape[0] // (self.n_pasts + 1)
         return self.n_neur
 
-    # @staticmethod
-    # @jit(nopython=True)
+
     def correlation_func(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:  # private
         """
         Computes unconditional dependence of any variable pair
@@ -285,65 +286,65 @@ class GcStar:
         return corr[:, :self.n_neur], pVal_corr
 
 
-    def get_conditioning_set(self, X: np.ndarray, i: int, j: int) -> np.ndarray:
-        """
-        Identifies the variables in the conditioning set for
-        Granger causality implementation.
-        All indices in range(0, X.shape[0]) that are not `i_ind` are
-        considered to be indices of latent variables.
+    # def get_conditioning_set(self, X: np.ndarray, i: int, j: int) -> np.ndarray:
+    #     """
+    #     Identifies the variables in the conditioning set for
+    #     Granger causality implementation.
+    #     All indices in range(0, X.shape[0]) that are not `i_ind` are
+    #     considered to be indices of latent variables.
+    #
+    #     Args:
+    #         i: (int) index of the cause variable
+    #         j: (int) index of the effect variable
+    #
+    #     Returns:
+    #         The conditioning set containing relevant variables of type np.ndarray
+    #         with 2-dimension, where each row represents a variable
+    #         conditioned variable, and each column includes the historical
+    #         values of said variable.
+    #
+    #     """
+    #     X_copy = X.copy()
+    #     num_vars = self.n_neur
+    #
+    #     j_ind = j
+    #     i_ind = i % num_vars
+    #     i_lag = i // num_vars
+    #
+    #     X_past = self.get_past(X_copy)
+    #
+    #     # get the latent variable indices
+    #     all_indices = np.arange(num_vars)
+    #     ij_mask = np.isin(all_indices, [i_ind, j_ind])
+    #     z_indices = all_indices[~ij_mask]  # everything that isn't i or j
+    #     # is z`X_past` has shape (n_past, num_vars, X.shape[1]-n_past)
+    #
+    #     # From the independent variable, we want to return everything before
+    #     # but not including the "current" value at `i_lag`
+    #     i_past = X_past[i_lag + 1:, [i_ind], :]
+    #     # i_past shape (history up to i_lag, 1, X.shape[1]-n_past)
+    #
+    #     # For the latent variable, we want to return everything up to and
+    #     # at the same time as the independent variable
+    #     z_past = X_past[i_lag:, z_indices, :]
+    #     # z_past shape (history up to i_lag+1, X.shape[0]-2,
+    #     # X.shape[1]-n_past)
+    #
+    #     # For the dependent variable, we return all times in the past but
+    #     # not the current value
+    #     j_past = X_past[1:, [j_ind], :]
+    #     # j_past shape (history up to current time, 1, X.shape[1]-n_past)
+    #
+    #     # reshape everything to be compatible shape
+    #     i_past_reshaped = i_past.reshape(-1, i_past.shape[-1])
+    #     j_past_reshaped = j_past.reshape(-1, j_past.shape[-1])
+    #     z_past_reshaped = z_past.reshape(-1, z_past.shape[-1])
+    #     # stack it back into a matrix and return
+    #     return np.vstack([i_past_reshaped, j_past_reshaped,
+    #                       z_past_reshaped])
 
-        Args:
-            i: (int) index of the cause variable
-            j: (int) index of the effect variable
 
-        Returns:
-            The conditioning set containing relevant variables of type np.ndarray
-            with 2-dimension, where each row represents a variable
-            conditioned variable, and each column includes the historical
-            values of said variable.
-
-        """
-        X_copy = X.copy()
-        num_vars = self.n_neur
-
-        j_ind = j
-        i_ind = i % num_vars
-        i_lag = i // num_vars
-
-        X_past = self.get_past(X_copy)
-
-        # get the latent variable indices
-        all_indices = np.arange(num_vars)
-        ij_mask = np.isin(all_indices, [i_ind, j_ind])
-        z_indices = all_indices[~ij_mask]  # everything that isn't i or j
-        # is z`X_past` has shape (n_past, num_vars, X.shape[1]-n_past)
-
-        # From the independent variable, we want to return everything before
-        # but not including the "current" value at `i_lag`
-        i_past = X_past[i_lag + 1:, [i_ind], :]
-        # i_past shape (history up to i_lag, 1, X.shape[1]-n_past)
-
-        # For the latent variable, we want to return everything up to and
-        # at the same time as the independent variable
-        z_past = X_past[i_lag:, z_indices, :]
-        # z_past shape (history up to i_lag+1, X.shape[0]-2,
-        # X.shape[1]-n_past)
-
-        # For the dependent variable, we return all times in the past but
-        # not the current value
-        j_past = X_past[1:, [j_ind], :]
-        # j_past shape (history up to current time, 1, X.shape[1]-n_past)
-
-        # reshape everything to be compatible shape
-        i_past_reshaped = i_past.reshape(-1, i_past.shape[-1])
-        j_past_reshaped = j_past.reshape(-1, j_past.shape[-1])
-        z_past_reshaped = z_past.reshape(-1, z_past.shape[-1])
-        # stack it back into a matrix and return
-        return np.vstack([i_past_reshaped, j_past_reshaped,
-                          z_past_reshaped])
-
-
-    def get_cond_set(self, X, i, j) -> np.ndarray:
+    def get_conditioning_set(self, X, i, j) -> np.ndarray:
         """
         Identifies the variables in the conditioning set for Granger causality implementation.
 
@@ -422,7 +423,7 @@ class GcStar:
                 if self.method == 'fcgc':
                     z = np.delete(data.copy(), [i, j], axis=0)
                 else:
-                    z = self.get_cond_set(self.data, i, j)
+                    z = self.get_conditioning_set(self.data, i, j)
                     #get_cond_set(self.data, self.n_pasts, i, j)
                     # #get_conditioning_set(self.data, i, j)
 
@@ -439,6 +440,8 @@ class GcStar:
                                  f"({completion_percentage:.2f}% complete)")
 
         return inv_corr, pVal_inv_corr
+
+
 
     def fit(self, X: np.ndarray, verbose=1):
         """
@@ -585,8 +588,8 @@ class GcStar:
                     self.data = X.copy()[:, same_idx]
                     z = self.get_conditioning_set(i, j)
 
-                    x_ = self.__residual(x, z)
-                    y_ = self.__residual(y, z)
+                    x_ = residual(x, z)
+                    y_ = residual(y, z)
 
                     inv_corr[i, j] = np.abs(np.corrcoef(x_, y_)[1, 0])
                     pVal_inv_corr[i, j] = self.__perm_test_(x_, y_)
@@ -638,9 +641,10 @@ class GcStar:
             # axs[a].axis('off')
         plt.tight_layout()
 
-    def get_connectivity_matrix(self, simulation: bool,
+    def get_connectivity_matrix(self,
+                                simulation: bool,
                                 alpha: float = 0.01,
-                                beta: float = 0.001) -> np.ndarray:
+                                beta: float = 0.001)  -> np.ndarray:
         """
         Computes the weighted connectivity matrix from significant
         conditional and unconditional links based on the maximum
@@ -654,6 +658,8 @@ class GcStar:
 
             beta: float, Significance level for conditional
                     dependence (default value 0.001)
+
+            simulation: bool, Determines if analysis is simulation or not
 
         Returns:
             Weighted Connectivity matrix of shape [n_neur, n_neur]
@@ -674,19 +680,16 @@ class GcStar:
             all_.append(inferred[a * n_neur:(a + 1) * n_neur,
                         b * n_neur:(b + 1) * n_neur])
 
-        if not simulation:
+        if simulation == False:
             self.conn_mat = all_[0]
-
-            for i in range(1, self.n_lags + 1):
-                self.conn_mat = np.logical_or(self.conn_mat, all_[i])
-
-        self.conn_mat = all_[1]
+        else:
+            self.conn_mat = all_[1]
 
         for i in range(1, self.n_lags + 1):
             self.conn_mat = np.logical_or(self.conn_mat, all_[i])
 
-
-        # multiplied with correlation to return connections strength
+        # multiplied with correlation matrix to return weighted connectivity
+        # matrix (weights depict the connection strengths)
         self.conn_mat = np.multiply(self.corr_[:n_neur, :], self.conn_mat)
 
 
@@ -695,7 +698,7 @@ class GcStar:
 
     ### computing metrics
 
-    def compute_confusion_matrix(self, A: np.ndarray, simulation: bool):
+    def compute_confusion_matrix(self, A: np.ndarray):
         """
         Function to compute the performance of the algorithm.
         Computes the confusion matrix by comparing the ground truth
@@ -706,22 +709,21 @@ class GcStar:
                 ground truth A and "False" otherwise.
 
         Returns:
-            Confusion matrix with the form np.array([[TP, FN],
-                                                     [FP, TN]])
+            Confusion matrix with the form np.array([[TP, FP],
+                                                     [FN, TN]])
         """
-        if simulation:
-            A = A.T
         TP = np.sum(np.logical_and(A != 0, self.conn_mat != 0))
         FN = np.sum(np.logical_and(A != 0, self.conn_mat == 0))
         FP = np.sum(np.logical_and(A == 0, self.conn_mat != 0))
         TN = np.sum(np.logical_and(A == 0, self.conn_mat == 0))
-        self.confusion_matrix = np.array([[TP, FN],
-                                          [FP, TN]])
+        self.confusion_matrix = np.array([[TP, FP],
+                                          [FN, TN]])
 
         return self.confusion_matrix
 
     def compare_with_GT(self, A: np.ndarray,
-                        inf: np.ndarray, simulation: bool) -> np.ndarray:
+                        inf: np.ndarray,
+                        simulation: bool) -> np.ndarray:   #
         """
 
         Args:
@@ -734,6 +736,7 @@ class GcStar:
         """
         if simulation:
             A = A.T
+
         return (40 * np.logical_and(A != 0, inf != 0) +
                 30 * np.logical_and(A == 0, inf != 0) +
                 20 * np.logical_and(A != 0, inf == 0) +
@@ -752,15 +755,16 @@ class GcStar:
                     / (np.sum(conf_mat_flatten)))
 
         precision = conf_mat_flatten[0] / (conf_mat_flatten[0] +
-                                           conf_mat_flatten[2])
+                                           conf_mat_flatten[1])
 
         recall = conf_mat_flatten[0] / (conf_mat_flatten[0] +
-                                        conf_mat_flatten[1])
+                                        conf_mat_flatten[2])
 
-        FPR = conf_mat_flatten[2] / (conf_mat_flatten[2] +
+        FPR = conf_mat_flatten[1] / (conf_mat_flatten[1] +
                                      conf_mat_flatten[3])
 
         return np.array([accuracy, precision, recall, FPR])
+
 
     def get_projection_distances(self, topography):  # REVISE
         """

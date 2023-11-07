@@ -14,4 +14,7 @@ Dependencies:
  > Run `make install` from terminal. If you prefer to use an anaconda distribution; Open the  `init.ipynb` notebook and run the cell. 
   This will install all required packages in the `requirements.txt` file.
  > An example notebook on how to use the package is also provided for you. 
+ > 
 > 
+> 
+> Revert d_CSL to tue OCT 31 at 11PM for conditional correlation func
