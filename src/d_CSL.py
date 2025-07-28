@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.11
+#!/usr/bin/env python3.12
 # coding: utf-8
 
 import numpy as np
@@ -8,15 +8,13 @@ import matplotlib.pyplot as plt
 from typing import Tuple, Optional
 import statsmodels.api as sm
 from sklearn.metrics import mean_squared_error
-import mat73
 import matplotlib.colors as mcolors
-from mpl_toolkits import mplot3d
 import matplotlib.pyplot as plt
 from tqdm.notebook import tqdm
 import concurrent.futures
 import logging
 import multiprocessing
-
+from cdt.metrics import SHD
 
 @jit(nopython=True)
 def perm_test(x, y, n_perm):
@@ -170,7 +168,7 @@ class GcStar:
 
     def shift_data(self, arr: np.ndarray) -> np.ndarray:
         """
-        Creates shifted versions of original data based on the number of pasts required.
+        Creates shifted versions of the original data based on the number of pasts required.
         Concatenate the shifted arrays and return the new data.
 
         Examples: Given original data as X,
@@ -197,32 +195,6 @@ class GcStar:
             trimmed_arr = np.r_[trimmed_arr, arr[:, idx1:idx2]]
         return trimmed_arr
 
-
-    # def get_past(self, X: np.ndarray) -> np.ndarray:
-    #     """
-    #         Creates shifted versions of original data based on the number of pasts required.
-    #         Concatenate the shifted arrays and return the new data.
-    #     Args:
-    #         X: np.ndarray of shape (num_vars, num_timesteps)
-    #         n_past: int, number of timelags to consider
-    #
-    #     Returns:
-    #         np.ndarray of shape (n_past+1, num_vars, num_timesteps-n_past) with lags
-    #         increasing along the first axis.
-    #     """
-    #     assert len(X.shape) == 2, \
-    #         "X must be a 2-dimensional array"
-    #     if self.n_pasts == 0:
-    #         return X.copy().reshape(1, *X.shape)
-    #     past_matrices = []
-    #     for j in range(self.n_pasts + 1):
-    #         X_past_j = X[:, self.n_pasts - j:X.shape[1] - j]
-    #         past_matrices.append(X_past_j)
-    #     X_past = np.stack(past_matrices)
-    #     return X_past
-
-
-
     def get_number_of_neurons(self) -> int:  # private
         """
         Computes the number of neurons/variables from the shape
@@ -241,17 +213,17 @@ class GcStar:
 
     def correlation_func(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:  # private
         """
-        Computes unconditional dependence of any variable pair
-        using Pearson's correlation as dependence metric
+        Computes the unconditional dependence of any variable pair
+        using Pearson's correlation as a dependence metric
 
         Args:
             X: data from __shift_data()
 
         Returns:
             corr[:, :n]: np.ndarray shape [trimmed_arr.shape[0], self.n_neur]
-                Correlation matrix of the data but done on the shifted data,
-                however, we select the portion that is most relevant for us
-                by slicing the matrix into shape required
+                Correlation matrix of the data, but done on the shifted data.
+                However, we select the portion that is most relevant for us
+                by slicing the matrix into the required shape.
 
             pVal_corr: np.ndarray with shape as the correlation matrix.
                 contains the p-values of individual elements in
@@ -265,7 +237,7 @@ class GcStar:
         # compute correlation and p-values matrices of shifted data
         corr = np.abs(np.corrcoef(self.shifted_data))
 
-        # initialize p-value matrix of correlation
+        # Initialize p-value matrix of correlation
         pVal_corr = np.zeros((n, self.n_neur))
 
         total_steps = n * self.n_neur
@@ -282,65 +254,6 @@ class GcStar:
                                  f"({completion_percentage:.2f}% complete)")
 
         return corr[:, :self.n_neur], pVal_corr
-
-
-    # def get_conditioning_set(self, X: np.ndarray, i: int, j: int) -> np.ndarray:
-    #     """
-    #     Identifies the variables in the conditioning set for
-    #     Granger causality implementation.
-    #     All indices in range(0, X.shape[0]) that are not `i_ind` are
-    #     considered to be indices of latent variables.
-    #
-    #     Args:
-    #         i: (int) index of the cause variable
-    #         j: (int) index of the effect variable
-    #
-    #     Returns:
-    #         The conditioning set containing relevant variables of type np.ndarray
-    #         with 2-dimension, where each row represents a variable
-    #         conditioned variable, and each column includes the historical
-    #         values of said variable.
-    #
-    #     """
-    #     X_copy = X.copy()
-    #     num_vars = self.n_neur
-    #
-    #     j_ind = j
-    #     i_ind = i % num_vars
-    #     i_lag = i // num_vars
-    #
-    #     X_past = self.get_past(X_copy)
-    #
-    #     # get the latent variable indices
-    #     all_indices = np.arange(num_vars)
-    #     ij_mask = np.isin(all_indices, [i_ind, j_ind])
-    #     z_indices = all_indices[~ij_mask]  # everything that isn't i or j
-    #     # is z`X_past` has shape (n_past, num_vars, X.shape[1]-n_past)
-    #
-    #     # From the independent variable, we want to return everything before
-    #     # but not including the "current" value at `i_lag`
-    #     i_past = X_past[i_lag + 1:, [i_ind], :]
-    #     # i_past shape (history up to i_lag, 1, X.shape[1]-n_past)
-    #
-    #     # For the latent variable, we want to return everything up to and
-    #     # at the same time as the independent variable
-    #     z_past = X_past[i_lag:, z_indices, :]
-    #     # z_past shape (history up to i_lag+1, X.shape[0]-2,
-    #     # X.shape[1]-n_past)
-    #
-    #     # For the dependent variable, we return all times in the past but
-    #     # not the current value
-    #     j_past = X_past[1:, [j_ind], :]
-    #     # j_past shape (history up to current time, 1, X.shape[1]-n_past)
-    #
-    #     # reshape everything to be compatible shape
-    #     i_past_reshaped = i_past.reshape(-1, i_past.shape[-1])
-    #     j_past_reshaped = j_past.reshape(-1, j_past.shape[-1])
-    #     z_past_reshaped = z_past.reshape(-1, z_past.shape[-1])
-    #     # stack it back into a matrix and return
-    #     return np.vstack([i_past_reshaped, j_past_reshaped,
-    #                       z_past_reshaped])
-
 
     def get_conditioning_set(self, X, i, j) -> np.ndarray:
         """
@@ -370,7 +283,7 @@ class GcStar:
     def inv_correlation_func(self, X: np.ndarray,
                              method: str) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Computes conditional dependency of any variable pair with Pearson's
+        Computes the conditional dependency of any variable pair with Pearson's
         correlation as the dependence metric.
         It computes the residual of any pair in question with the
         conditioning set of choice (c-GC or fc-GC style).
@@ -391,9 +304,9 @@ class GcStar:
 
         Returns:
             inv_corr: np.ndarray shape [trimmed_arr.shape[0], self.n_neur]
-                Correlation matrix of the data but done on the shifted data,
-                however, we select the portion that is most relevant for us
-                by slicing the matrix into shape required
+                Correlation matrix of the data but done on the shifted data.
+                However, we select the portion that is most relevant for us
+                by slicing the matrix into the required shape.
 
             pVal_inv_corr: np.ndarray with shape as the correlation matrix
                 contains the p-values of individual elements in the
@@ -403,14 +316,14 @@ class GcStar:
         data = self.shift_data(X.copy())
         n = data.shape[0]
 
-        # initialize matrices for inverse correlation and their p-values
+        # Initialize matrices for inverse correlation and their p-values
         inv_corr = np.zeros((n, self.n_neur))
         pVal_inv_corr = np.zeros((n, self.n_neur))
 
         total_steps = n * self.n_neur
         current_step = 0
 
-        # compute inverse correlation and p-values
+        # Compute inverse correlation and p-values
         for i in range(n):
             for j in range(self.n_neur):
                 x = data[i]
@@ -428,7 +341,7 @@ class GcStar:
                 # compute residuals for both cause and effect
                 x_res = residual(x, z)
                 y_res = residual(y, z)
-                # check dependence of the two residuals and the p-value
+                # Check the dependence of the two residuals and the p-value
                 inv_corr[i, j] = np.abs(np.corrcoef(x_res, y_res)[1, 0])
                 pVal_inv_corr[i, j] = perm_test(x_res, y_res, self.n_perm)
 
@@ -449,13 +362,14 @@ class GcStar:
             X: array-like of shape (n_neur, T)
                 where `n_neur` is the number of neurons or variables
                 and `T` is the time or number of samples
+            
             method: str. Defines which conditioning set to use.
                 Takes arguments "cgc" or "fcgc"
 
                  cgc: when conventional Granger causality conditioning set
                   is preferred
 
-                 fcgc: when full conditioning set including future states
+                 fcgc: when full conditioning set with future states,
                   is preferred for use.
 
 
@@ -496,12 +410,94 @@ class GcStar:
 
         return self
 
-    #####################################################################
-    def __mat_func(self, A, inf):
-        return (40 * np.logical_and(A != 0, inf != 0) +
-                30 * np.logical_and(A == 0, inf != 0) +
-                20 * np.logical_and(A != 0, inf == 0) +
-                10 * np.logical_and(A == 0, inf == 0))
+
+    def get_connectivity_matrix(self,
+                                simulation: bool,
+                                alpha: float = 0.01,
+                                beta: float = 0.001)  -> np.ndarray:
+        """
+        Computes the weighted connectivity matrix from significant
+        conditional and unconditional links based on the maximum
+        lag allowed for the analysis.
+            >If the connections strength are not useful for
+            analysis, the connectivity matrix can be binarized
+
+        Args:
+            alpha: float, Significance level for unconditional
+                    dependence (default value 0.01)
+
+            beta: float, Significance level for conditional
+                    dependence (default value 0.001)
+
+            simulation: bool, Determines if analysis is simulation or not
+
+        Returns:
+            Weighted Connectivity matrix of shape [n_neur, n_neur]
+        """
+        # compute significant correlation and inverse correlation matrices
+        sig_corr = np.multiply(self.corr_, self.pVal_corr_ <= alpha)
+        sig_inv = np.multiply(self.inv_corr_, self.pVal_inv_corr_ <= beta)
+
+        # extended connectivity matrix
+        inferred = np.logical_and(sig_corr, sig_inv)
+
+        b = 0
+        all_ = []
+        n_neur = inferred.shape[1]
+
+        # merging results for the GC order used
+        for a in range(self.n_pasts + 1):
+            all_.append(inferred[a * n_neur:(a + 1) * n_neur,
+                        b * n_neur:(b + 1) * n_neur])
+
+        if simulation == False:
+            self.conn_mat = all_[0]
+        else:
+            self.conn_mat = all_[1]
+
+        for i in range(1, self.n_lags + 1):
+            self.conn_mat = np.logical_or(self.conn_mat, all_[i])
+
+        # multiplied with correlation matrix to return weighted connectivity
+        # matrix (weights depict the connection strengths)
+        self.conn_mat = np.multiply(self.corr_[:n_neur, :], self.conn_mat)
+
+
+
+        return self.conn_mat
+
+###############################################################
+### computing metrics
+###############################################################
+    def compute_confusion_matrix(self, A: np.ndarray):
+        """
+        Function to compute the performance of the algorithm.
+        Computes the confusion matrix by comparing the ground truth
+        to the inferred connectivity matrix.
+        Args:
+            A: Ground truth connectivity matrix
+            simulation (bool): Takes "True" if data is simulated with
+                ground truth A and "False" otherwise.
+
+        Returns:
+            Confusion matrix with the form np.array([[TP, FP],
+                                                     [FN, TN]])
+        """
+        TP = np.sum(np.logical_and(A != 0, self.conn_mat != 0))
+        FN = np.sum(np.logical_and(A != 0, self.conn_mat == 0))
+        FP = np.sum(np.logical_and(A == 0, self.conn_mat != 0))
+        TN = np.sum(np.logical_and(A == 0, self.conn_mat == 0))
+        self.confusion_matrix = np.array([[TP, FP],
+                                          [FN, TN]])
+
+        return self.confusion_matrix
+
+    def compute_shd_sid(self, A: np.ndarray,
+                        inf: np.ndarray) -> np.ndarray:
+        self.shd = SHD(target=A.T, pred=inf, double_for_anticausal=True)
+        #self.sid = SID(target=GT, pred=inf)
+        return self.shd
+
 
 
     ###########################################################################
@@ -530,7 +526,7 @@ class GcStar:
             if np.abs(corr_2) >= np.abs(corr_1):
                 count += 1
 
-        return count / self.n_perm
+        return count/self.n_perm
 
     def lp_filt(self) -> np.ndarray:
         amp = np.ones(self.M)
@@ -632,109 +628,23 @@ class GcStar:
                  b * self.n_neur:(b + 1) * self.n_neur]
             axs[a].imshow(jj)
             axs[a].axis('off')
-            # if not simulation:
-            #     axs[a].imshow(jj)
-            #     axs[a].axis('off')
-            # axs[a].imshow(self.__mat_func(jj, A.T))
-            # axs[a].axis('off')
         plt.tight_layout()
-
-    def get_connectivity_matrix(self,
-                                simulation: bool,
-                                alpha: float = 0.01,
-                                beta: float = 0.001)  -> np.ndarray:
-        """
-        Computes the weighted connectivity matrix from significant
-        conditional and unconditional links based on the maximum
-        lag allowed for the analysis.
-            >If the connections strength are not useful for
-            analysis, the connectivity matrix can be binarized
-
-        Args:
-            alpha: float, Significance level for unconditional
-                    dependence (default value 0.01)
-
-            beta: float, Significance level for conditional
-                    dependence (default value 0.001)
-
-            simulation: bool, Determines if analysis is simulation or not
-
-        Returns:
-            Weighted Connectivity matrix of shape [n_neur, n_neur]
-        """
-        # compute significant correlation and inverse correlation matrices
-        sig_corr = np.multiply(self.corr_, self.pVal_corr_ <= alpha)
-        sig_inv = np.multiply(self.inv_corr_, self.pVal_inv_corr_ <= beta)
-
-        # extended connectivity matrix
-        inferred = np.logical_and(sig_corr, sig_inv)
-
-        b = 0
-        all_ = []
-        n_neur = inferred.shape[1]
-
-        # merging results for the GC order used
-        for a in range(self.n_pasts + 1):
-            all_.append(inferred[a * n_neur:(a + 1) * n_neur,
-                        b * n_neur:(b + 1) * n_neur])
-
-        if simulation == False:
-            self.conn_mat = all_[0]
-        else:
-            self.conn_mat = all_[1]
-
-        for i in range(1, self.n_lags + 1):
-            self.conn_mat = np.logical_or(self.conn_mat, all_[i])
-
-        # multiplied with correlation matrix to return weighted connectivity
-        # matrix (weights depict the connection strengths)
-        self.conn_mat = np.multiply(self.corr_[:n_neur, :], self.conn_mat)
-
-
-
-        return self.conn_mat
-
-    ### computing metrics
-
-    def compute_confusion_matrix(self, A: np.ndarray):
-        """
-        Function to compute the performance of the algorithm.
-        Computes the confusion matrix by comparing the ground truth
-        to the inferred connectivity matrix.
-        Args:
-            A: Ground truth connectivity matrix
-            simulation (bool): Takes "True" if data is simulated with
-                ground truth A and "False" otherwise.
-
-        Returns:
-            Confusion matrix with the form np.array([[TP, FP],
-                                                     [FN, TN]])
-        """
-        TP = np.sum(np.logical_and(A != 0, self.conn_mat != 0))
-        FN = np.sum(np.logical_and(A != 0, self.conn_mat == 0))
-        FP = np.sum(np.logical_and(A == 0, self.conn_mat != 0))
-        TN = np.sum(np.logical_and(A == 0, self.conn_mat == 0))
-        self.confusion_matrix = np.array([[TP, FP],
-                                          [FN, TN]])
-
-        return self.confusion_matrix
 
     def compare_with_GT(self, A: np.ndarray,
                         inf: np.ndarray,
-                        simulation: bool) -> np.ndarray:   #
+                        simulation: bool) -> np.ndarray:
         """
-
         Args:
             A (np.ndarray):
             inf (np.ndarray):
             simulation (bool):
 
         Returns:
+            The 
 
         """
         if simulation:
             A = A.T
-
         return (40 * np.logical_and(A != 0, inf != 0) +
                 30 * np.logical_and(A == 0, inf != 0) +
                 20 * np.logical_and(A != 0, inf == 0) +
@@ -762,155 +672,3 @@ class GcStar:
                                      conf_mat_flatten[3])
 
         return np.array([accuracy, precision, recall, FPR])
-
-
-    def get_projection_distances(self, topography):  # REVISE
-        """
-        Computes the projection distance between ROIs that are linked
-        to each other in the connectivity matrix
-        Args:
-            topography:
-
-        Returns:
-            The vector containing the projection distances
-        """
-        loc = np.transpose(np.where(self.conn_mat > 0))
-        dist = np.zeros(len(loc))
-        for i in range(len(loc)):
-            p1, p2 = topography[loc[i, 0]], topography[loc[i, 1]]
-            dist[i] = np.sqrt((p2[0] - p1[0]) ** 2 + (p2[1] - p1[1]) ** 2
-                              + (p2[2] - p1[2]) ** 2)
-        return dist
-
-
-### Ploting tools
-
-class Visualize_on_topography(GcStar):
-    def __init__(self, n_perm: int, n_pasts: int, n_lags: int) -> None:
-        super().__init__(n_perm, n_pasts, n_lags)
-
-        self.topography = None
-        self.inf = None  # super().get_connectivity_matrix()
-        self.roi_count = None
-
-    def repopulate(self, roi_idx: np.ndarray) -> np.ndarray:
-        """
-        Repopulates the inferred connectivity matrix obtained from
-        identified ROIs selected from a data volume.
-        Only necessary for ease of connectivity matrix plotting on
-        topography by facilitating ease of pixel coordinate extractions.
-
-        Args:
-            pop_count: An integer value stating the number of ROIs in
-                the whole population of data where from the volume analysed
-                was selected
-            roi_idx: A vector of integer indexes of identified ROIs.
-            # roi_count: Number of ROIs in the volume the identified
-                traces are selected
-
-        Returns:
-            Connectivity matrix with the shape of data population.
-        """
-        inferred_ = np.zeros((self.roi_count, self.roi_count))
-        p = np.transpose(np.where(self.inf != 0))
-        for i in range(p.shape[0]):
-            inferred_[roi_idx[p[i, 0]], roi_idx[p[i, 1]]] = 1  # self.inf[p[i]]
-
-        return inferred_
-
-    def get_cordinates(self, inferred_: np.ndarray):
-        """
-        A func to make coordinates for each ROIs
-        Args:
-            inferred_: shape [self.roi_count, self.roi_count]
-            topography: the position of ROIs given from data
-
-        Returns:
-            coordinates for each ROIs and the edges [t]
-        """
-
-        t = np.transpose(np.where(inferred_ > 0))
-        point_1 = np.zeros_like(t)
-        point_2 = np.zeros_like(t)
-
-        for i in range(len(t)):
-            point_1[i] = self.topography[t[i, 0], [0, 1]]
-            point_2[i] = self.topography[t[i, 1], [0, 1]]
-
-        x_val = []
-        y_val = []
-        z_val = []
-
-        for i in range(len(point_1)):
-            x_val.append([point_1[i, 0], point_2[i, 0]])
-            y_val.append([point_1[i, 1], point_2[i, 1]])
-            if self.topography.shape[1] == 3:
-                z_val.append([self.topography[t[i, 0], 2],
-                              self.topography[t[i, 1], 2]])
-
-        return x_val, y_val, z_val, t
-
-    def plot_conn_mat_on_topography(self,
-                                    topography: np.ndarray,
-                                    inferred: np.ndarray,
-                                    roi_idx: np.ndarray):
-        """
-        3D visualisation of the connectivity matrix on the topography of fish
-
-        Args:
-            topography: 3-dimensional pixels coordinates of ROIs
-            roi_idx: A vector of identified ROI indexes
-
-        Returns:
-            3D visualisation of neural circuit
-        """
-        self.topography = topography
-        self.inf = inferred
-        self.roi_count = topography.shape[1]
-
-        # repopulate the inferred matrix into a bigger matrix
-        inferred_rep = self.repopulate(roi_idx=roi_idx)
-        # extract coordinates for each ROIs
-        x_val, y_val, z_val, t = self.get_cordinates(inferred_rep)
-        # visualize in 3-dimensions
-        fig = plt.figure(figsize=(10, 10))
-        ax = fig.add_subplot(111, projection="3d")
-        ax.scatter(self.topography[:, 0], self.topography[:, 1],
-                   self.topography[:, 2], color='red', s=10, marker='.')
-        ax.scatter(self.topography[roi_idx, 0], self.topography[roi_idx, 1],
-                   self.topography[roi_idx, 2], color='green', s=15, marker='*')
-        for a in range(len(x_val)):
-            ax.plot(x_val[a], y_val[a], z_val[a], lw=0.7, alpha=.7)
-        ax.grid(False)
-        ax.set_xlabel('X-axis')
-        ax.set_ylabel('Y-axis')
-        ax.set_zlabel('z-axis')
-        return fig
-
-    def plot_correlation_of_ROIs_with_behavior(self,
-                                               corr_with_beh: np.ndarray):
-        """
-        Plots the correlation of each ROIs with the behavior
-        trace on the topography
-
-        Args:
-            corr_list (array-like, matrix [1 x n_neur]):
-             List of correlation coefficient of ind neuron in
-             data with the behavior
-            centers (np.ndarray): 3D coordinates of all neurons in data
-
-        Returns:
-
-        """
-        fig = plt.figure(figsize=(10, 6))
-        if self.topography.shape[1] == 2:
-            plt.scatter(self.topography[:, 0], self.topography[:, 1],
-                        marker='o', s=10, c=corr_with_beh,
-                        cmap='seismic')
-            plt.colorbar()
-        else:
-            ax = fig.add_subplot(111, projection="3d")
-            p = ax.scatter(self.topography[:, 0], self.topography[:, 1],
-                           self.topography[:, 2], marker='o', s=10,
-                           c=corr_with_beh, cmap='seismic')
-            fig.colorbar(p)
