@@ -14,7 +14,9 @@ from tqdm.notebook import tqdm
 import concurrent.futures
 import logging
 import multiprocessing
-from cdt.metrics import SHD
+from cdt.metrics import SHD, SID
+from itertools import permutations
+
 
 @jit(nopython=True)
 def perm_test(x, y, n_perm):
@@ -173,7 +175,7 @@ class GcStar:
 
         Examples: Given original data as X,
             trimmed_arr = __shifted_data(X, n_past = n)
-            with trimmed_arr = {X_{t}, X_{t-1}, \dots, X_{t-n}}^T
+            with trimmed_arr = {X_{t}, X_{t-1}, ..., X_{t-n}}^T
         Args:
             arr: original data recorded or obtained from experiments
             n_pasts: number of pasts defining the number of shifts
@@ -352,8 +354,6 @@ class GcStar:
 
         return inv_corr, pVal_inv_corr
 
-
-
     def fit(self, X: np.ndarray, verbose=1):
         """
         Fits c-gc to data
@@ -409,7 +409,6 @@ class GcStar:
         self.inv_corr_, self.pVal_inv_corr_ = inv_corr_, pVal_inv_corr_
 
         return self
-
 
     def get_connectivity_matrix(self,
                                 simulation: bool,
@@ -489,15 +488,56 @@ class GcStar:
         TN = np.sum(np.logical_and(A == 0, self.conn_mat == 0))
         self.confusion_matrix = np.array([[TP, FP],
                                           [FN, TN]])
-
         return self.confusion_matrix
+    
+    def all_metrics(self):
+        confusion_matrix = self.confusion_matrix.flatten()
+        accuracy = (confusion_matrix[0] + confusion_matrix[3])/(np.sum(confusion_matrix))
+        precision = confusion_matrix[0]/(confusion_matrix[0]+confusion_matrix[1])
+        recall = confusion_matrix[0]/(confusion_matrix[0]+confusion_matrix[2])
+        FPR = confusion_matrix[1]/(confusion_matrix[1]+confusion_matrix[3])
 
+        # others 
+        specificity = confusion_matrix[3]/(confusion_matrix[3]+confusion_matrix[1])
+        BA = (specificity + recall)/2
+        F1 = 2 * (precision * recall) / (precision + recall)
+        return np.array([accuracy, precision, recall, FPR, BA, F1])
+    
     def compute_shd_sid(self, A: np.ndarray,
                         inf: np.ndarray) -> np.ndarray:
-        self.shd = SHD(target=A.T, pred=inf, double_for_anticausal=True)
-        #self.sid = SID(target=GT, pred=inf)
-        return self.shd
+        self.shd_ = SHD(target=A.T, pred=inf, double_for_anticausal=False)
+        # self.sid_ = SID(target=A.T, pred=inf)
+        return self.shd_ # self.sid_
 
+
+    def compute_SHD(self, A: np.ndarray,
+                        inf: np.ndarray) -> np.ndarray:
+        """
+        Computes SHD between two DAGs (adjacency matrices).
+        Accounts for edge additions, deletions, and reversals.
+        """
+        diff = np.abs(A - inf)
+        # Count reversed edges (where both directions exist)
+        reversed_edges = np.sum((A.T == inf) & (A != inf)) // 2
+        # SHD = FP + FN + R
+        self.shd = np.sum(diff) - reversed_edges
+        return self.shd
+    
+    def compute_SID(self, A: np.ndarray,
+                        inf: np.ndarray) -> np.ndarray:
+        """
+        Computes SID by comparing interventional parent sets.
+        """
+        self.sid = 0
+        n_nodes = A.shape[0]
+        for i, j in permutations(range(n_nodes), 2):
+            # Parents of j when intervening on i in true graph
+            true_parents = set(np.where(A[:, j] == 1)[0]) - {i}
+            # Parents of j in inferred graph (intervening on i removes incoming edges)
+            inferred_parents = set(np.where(inf[:, j] == 1)[0]) - {i}
+            if true_parents != inferred_parents:
+                self.sid += 1
+        return self.sid
 
 
     ###########################################################################

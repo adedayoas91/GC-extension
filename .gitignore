@@ -26,7 +26,7 @@ share/python-wheels/
 *.egg
 MANIFEST
 **/.DS_Store
-
+.dvc/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -123,7 +123,7 @@ celerybeat.pid
 
 # Environments
 .env
-.venv
+.venv/
 env/
 venv/
 ENV/
