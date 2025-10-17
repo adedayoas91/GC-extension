@@ -53,7 +53,6 @@ def prep_data(X, nn):
             X_ = np.r_[X_, X[:,idx1:idx2]]
         return X_
 
-
 # @jit(nopython=True)
 def residual(x: np.ndarray, z: np.ndarray) -> np.ndarray:  # private
     """
@@ -170,7 +169,8 @@ class GcStar:
 
     def shift_data(self, arr: np.ndarray) -> np.ndarray:
         """
-        Creates shifted versions of the original data based on the number of pasts required.
+        Creates shifted versions of the original data based on the number of pasts (n_past) required.
+        This is done by stacking sliding windows of columns from data based on n_past.
         Concatenate the shifted arrays and return the new data.
 
         Examples: Given original data as X,
@@ -212,8 +212,65 @@ class GcStar:
         self.n_neur = self.shifted_data.shape[0] // (self.n_pasts + 1)
         return self.n_neur
 
+    # def bvgc_cond_set(self, X, i, j):
+    #     data = X.copy()
+    #     i_, k = i%self.n_neur, i//self.n_neur
+    #     self.shifted_data = self.shift_data(data)
+    #     x_idx = np.arange(i_ , self.shifted_data.shape[0]+1, self.n_neur)
+    #     y_idx = np.arange(j, self.shifted_data.shape[0]+1, self.n_neur)
+    #     return self.shifted_data[np.r_[x_idx[k+1:], y_idx[1:]], :]
 
-    def correlation_func(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:  # private
+    # def correlation_func(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:  # private
+    #     """
+    #     Computes the unconditional dependence of any variable pair
+    #     using Pearson's correlation as a dependence metric
+
+    #     Args:
+    #         X: data from __shift_data()
+
+    #     Returns:
+    #         corr[:, :n]: np.ndarray shape [trimmed_arr.shape[0], self.n_neur]
+    #             Correlation matrix of the data, but done on the shifted data.
+    #             However, we select the portion that is most relevant for us
+    #             by slicing the matrix into the required shape.
+
+    #         pVal_corr: np.ndarray with shape as the correlation matrix.
+    #             contains the p-values of individual elements in
+    #             the correlation matrix
+    #     """
+    #     self.n_neur = X.copy().shape[0]
+    #     data = self.shift_data(X.copy())
+    #     n = data.shape[0]
+    #     # compute correlation and p-values matrices of shifted data
+    #     # corr = np.abs(np.corrcoef(self.shifted_data))
+
+    #     # Initialize p-value matrix of correlation
+    #     corr = np.zeros((n, self.n_neur))
+    #     pVal_corr = np.zeros((n, self.n_neur))
+
+    #     total_steps = n * self.n_neur
+    #     current_step = 0
+
+    #     # compute and populate p-value matrix
+    #     for i in range(n):
+    #         for j in range(self.n_neur):
+    #             x, y = data[i], data[j]
+    #             z = self.get_conditioning_set(data, i, j)
+
+    #             # compute residuals for both cause and effect
+    #             x_res, y_res  = residual(x, z), residual(y, z)
+
+    #             corr[i, j] = np.abs(np.corrcoef(x_res, y_res)[1, 0])
+    #             pVal_corr[i, j] = perm_test(x_res, y_res, self.n_perm)
+
+    #             current_step += 1
+    #             completion_percentage = (current_step / total_steps) * 100
+    #             self.logger.info(f"Step {current_step}/{total_steps} "
+    #                              f"({completion_percentage:.2f}% complete)")
+
+    #     return corr, pVal_corr
+
+    def correlation_func(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         Computes the unconditional dependence of any variable pair
         using Pearson's correlation as a dependence metric
@@ -337,12 +394,10 @@ class GcStar:
                     z = np.delete(data.copy(), [i, j], axis=0)
                 else:
                     z = self.get_conditioning_set(self.data, i, j)
-                    #get_cond_set(self.data, self.n_pasts, i, j)
-                    # #get_conditioning_set(self.data, i, j)
 
                 # compute residuals for both cause and effect
-                x_res = residual(x, z)
-                y_res = residual(y, z)
+                x_res, y_res  = residual(x, z), residual(y, z)
+
                 # Check the dependence of the two residuals and the p-value
                 inv_corr[i, j] = np.abs(np.corrcoef(x_res, y_res)[1, 0])
                 pVal_inv_corr[i, j] = perm_test(x_res, y_res, self.n_perm)
@@ -412,8 +467,7 @@ class GcStar:
 
     def get_connectivity_matrix(self,
                                 simulation: bool,
-                                alpha: float = 0.01,
-                                beta: float = 0.001)  -> np.ndarray:
+                                alpha: float, beta: float)  -> np.ndarray:
         """
         Computes the weighted connectivity matrix from significant
         conditional and unconditional links based on the maximum
@@ -449,10 +503,11 @@ class GcStar:
             all_.append(inferred[a * n_neur:(a + 1) * n_neur,
                         b * n_neur:(b + 1) * n_neur])
 
-        if simulation == False:
-            self.conn_mat = all_[0]
-        else:
+        if simulation:
             self.conn_mat = all_[1]
+        else:
+            if self.n_lags == 1:
+                self.conn_mat = np.logical_or(all_[0], all_[1])
 
         for i in range(1, self.n_lags + 1):
             self.conn_mat = np.logical_or(self.conn_mat, all_[i])
@@ -468,7 +523,7 @@ class GcStar:
 ###############################################################
 ### computing metrics
 ###############################################################
-    def compute_confusion_matrix(self, A: np.ndarray):
+    def compute_confusion_matrix(self, A: np.ndarray, simulation: bool):
         """
         Function to compute the performance of the algorithm.
         Computes the confusion matrix by comparing the ground truth
@@ -482,6 +537,8 @@ class GcStar:
             Confusion matrix with the form np.array([[TP, FP],
                                                      [FN, TN]])
         """
+        if simulation:
+            A = A.T
         TP = np.sum(np.logical_and(A != 0, self.conn_mat != 0))
         FN = np.sum(np.logical_and(A != 0, self.conn_mat == 0))
         FP = np.sum(np.logical_and(A == 0, self.conn_mat != 0))
@@ -504,40 +561,43 @@ class GcStar:
         return np.array([accuracy, precision, recall, FPR, BA, F1])
     
     def compute_shd_sid(self, A: np.ndarray,
-                        inf: np.ndarray) -> np.ndarray:
-        self.shd_ = SHD(target=A.T, pred=inf, double_for_anticausal=False)
+                        inf: np.ndarray, simulation: bool) -> np.ndarray:
+        if simulation:
+            A = A.T
+        self.shd_ = SHD(target=A, pred=inf, double_for_anticausal=False)
+        # TODO: To fix R-package which won't allow SID computations.    
         # self.sid_ = SID(target=A.T, pred=inf)
-        return self.shd_ # self.sid_
+        return self.shd_ # , self.sid_
 
 
-    def compute_SHD(self, A: np.ndarray,
-                        inf: np.ndarray) -> np.ndarray:
-        """
-        Computes SHD between two DAGs (adjacency matrices).
-        Accounts for edge additions, deletions, and reversals.
-        """
-        diff = np.abs(A - inf)
-        # Count reversed edges (where both directions exist)
-        reversed_edges = np.sum((A.T == inf) & (A != inf)) // 2
-        # SHD = FP + FN + R
-        self.shd = np.sum(diff) - reversed_edges
-        return self.shd
+    # def compute_SHD(self, A: np.ndarray,
+    #                     inf: np.ndarray) -> np.ndarray:
+    #     """
+    #     Computes SHD between two DAGs (adjacency matrices).
+    #     Accounts for edge additions, deletions, and reversals.
+    #     """
+    #     diff = np.abs(A - inf)
+    #     # Count reversed edges (where both directions exist)
+    #     reversed_edges = np.sum((A.T == inf) & (A != inf)) // 2
+    #     # SHD = FP + FN + R
+    #     self.shd = np.sum(diff) - reversed_edges
+    #     return self.shd
     
-    def compute_SID(self, A: np.ndarray,
-                        inf: np.ndarray) -> np.ndarray:
-        """
-        Computes SID by comparing interventional parent sets.
-        """
-        self.sid = 0
-        n_nodes = A.shape[0]
-        for i, j in permutations(range(n_nodes), 2):
-            # Parents of j when intervening on i in true graph
-            true_parents = set(np.where(A[:, j] == 1)[0]) - {i}
-            # Parents of j in inferred graph (intervening on i removes incoming edges)
-            inferred_parents = set(np.where(inf[:, j] == 1)[0]) - {i}
-            if true_parents != inferred_parents:
-                self.sid += 1
-        return self.sid
+    # def compute_SID(self, A: np.ndarray,
+    #                     inf: np.ndarray) -> np.ndarray:
+    #     """
+    #     Computes SID by comparing interventional parent sets.
+    #     """
+    #     self.sid = 0
+    #     n_nodes = A.shape[0]
+    #     for i, j in permutations(range(n_nodes), 2):
+    #         # Parents of j when intervening on i in true graph
+    #         true_parents = set(np.where(A[:, j] == 1)[0]) - {i}
+    #         # Parents of j in inferred graph (intervening on i removes incoming edges)
+    #         inferred_parents = set(np.where(inf[:, j] == 1)[0]) - {i}
+    #         if true_parents != inferred_parents:
+    #             self.sid += 1
+    #     return self.sid
 
 
     ###########################################################################
@@ -669,46 +729,25 @@ class GcStar:
             axs[a].imshow(jj)
             axs[a].axis('off')
         plt.tight_layout()
-
-    def compare_with_GT(self, A: np.ndarray,
+    
+def compare_with_GT(A: np.ndarray,
                         inf: np.ndarray,
                         simulation: bool) -> np.ndarray:
-        """
-        Args:
-            A (np.ndarray):
-            inf (np.ndarray):
-            simulation (bool):
+    """
+    This function helps to create the color coding for the
+    confusion matrix. TP (yellow), FP (green), and so on.
+    Args:
+        A (np.ndarray):
+        inf (np.ndarray):
+        simulation (bool):
 
-        Returns:
-            The 
-
-        """
-        if simulation:
-            A = A.T
-        return (40 * np.logical_and(A != 0, inf != 0) +
-                30 * np.logical_and(A == 0, inf != 0) +
-                20 * np.logical_and(A != 0, inf == 0) +
-                10 * np.logical_and(A == 0, inf == 0))
-
-    def compute_metrics(self) -> np.ndarray:
-        """
-        Computes metrics from the confusion matrix.
-        Returns:
-            An array containing the computed metrics.
-            in the order np.array([accuracy, precision, recall, FPR])
-        """
-        conf_mat_flatten = self.confusion_matrix.flatten()
-
-        accuracy = ((conf_mat_flatten[0] + conf_mat_flatten[3])
-                    / (np.sum(conf_mat_flatten)))
-
-        precision = conf_mat_flatten[0] / (conf_mat_flatten[0] +
-                                           conf_mat_flatten[1])
-
-        recall = conf_mat_flatten[0] / (conf_mat_flatten[0] +
-                                        conf_mat_flatten[2])
-
-        FPR = conf_mat_flatten[1] / (conf_mat_flatten[1] +
-                                     conf_mat_flatten[3])
-
-        return np.array([accuracy, precision, recall, FPR])
+    Returns:
+        Color-coded inferred connectivity matrix with respect
+        TP, FP, TN, and FN.  
+    """
+    if simulation:
+        A = A.T
+    return (40 * np.logical_and(A != 0, inf != 0) +
+            30 * np.logical_and(A == 0, inf != 0) +
+            20 * np.logical_and(A != 0, inf == 0) +
+            10 * np.logical_and(A == 0, inf == 0))
