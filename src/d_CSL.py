@@ -1,21 +1,16 @@
 #!/usr/bin/env python3.12
 # coding: utf-8
 
-import numpy as np
-from sklearn.linear_model import LinearRegression
-from numba import jit, njit
-import matplotlib.pyplot as plt
-from typing import Tuple, Optional
-import statsmodels.api as sm
-from sklearn.metrics import mean_squared_error
-import matplotlib.colors as mcolors
-import matplotlib.pyplot as plt
-from tqdm.notebook import tqdm
 import concurrent.futures
 import logging
-import multiprocessing
-from cdt.metrics import SHD, SID
-from itertools import permutations
+from typing import Optional, Tuple
+
+import matplotlib.pyplot as plt
+import numpy as np
+from cdt.metrics import SHD
+from numba import jit
+from sklearn.linear_model import LinearRegression
+from tqdm.notebook import tqdm
 
 
 @jit(nopython=True)
@@ -546,7 +541,7 @@ class GcStar:
         self.confusion_matrix = np.array([[TP, FP],
                                           [FN, TN]])
         return self.confusion_matrix
-    
+
     def all_metrics(self):
         confusion_matrix = self.confusion_matrix.flatten()
         accuracy = (confusion_matrix[0] + confusion_matrix[3])/(np.sum(confusion_matrix))
@@ -554,18 +549,18 @@ class GcStar:
         recall = confusion_matrix[0]/(confusion_matrix[0]+confusion_matrix[2])
         FPR = confusion_matrix[1]/(confusion_matrix[1]+confusion_matrix[3])
 
-        # others 
+        # others
         specificity = confusion_matrix[3]/(confusion_matrix[3]+confusion_matrix[1])
         BA = (specificity + recall)/2
         F1 = 2 * (precision * recall) / (precision + recall)
         return np.array([accuracy, precision, recall, FPR, BA, F1])
-    
+
     def compute_shd_sid(self, A: np.ndarray,
                         inf: np.ndarray, simulation: bool) -> np.ndarray:
         if simulation:
             A = A.T
         self.shd_ = SHD(target=A, pred=inf, double_for_anticausal=False)
-        # TODO: To fix R-package which won't allow SID computations.    
+        # TODO: To fix R-package which won't allow SID computations.
         # self.sid_ = SID(target=A.T, pred=inf)
         return self.shd_ # , self.sid_
 
@@ -582,7 +577,7 @@ class GcStar:
     #     # SHD = FP + FN + R
     #     self.shd = np.sum(diff) - reversed_edges
     #     return self.shd
-    
+
     # def compute_SID(self, A: np.ndarray,
     #                     inf: np.ndarray) -> np.ndarray:
     #     """
@@ -729,7 +724,7 @@ class GcStar:
             axs[a].imshow(jj)
             axs[a].axis('off')
         plt.tight_layout()
-    
+
 def compare_with_GT(A: np.ndarray,
                         inf: np.ndarray,
                         simulation: bool) -> np.ndarray:

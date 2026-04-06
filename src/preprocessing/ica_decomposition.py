@@ -14,7 +14,7 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 – side-effect import
 from scipy.signal import welch
 from sklearn.cluster import KMeans
-from sklearn.decomposition import FastICA, PCA
+from sklearn.decomposition import PCA, FastICA
 
 
 class ICADecomposition:

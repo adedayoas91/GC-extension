@@ -21,7 +21,6 @@ from ..constants import (
 )
 from ..core.granger_causality import causalisedGrangerCausality
 
-
 # ---------------------------------------------------------------------------
 # Topography visualiser
 # ---------------------------------------------------------------------------

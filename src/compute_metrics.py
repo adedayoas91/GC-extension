@@ -69,10 +69,10 @@ class Compute_metrics:
         loc = np.transpose(np.where(inf>0))
         dist = np.zeros(len(loc))
         for i in range(len(loc)):
-            p1,p2 = self.centers[loc[i,0]], self.centers[loc[i,1]] 
+            p1,p2 = self.centers[loc[i,0]], self.centers[loc[i,1]]
             dist[i] = np.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2 + (p2[2]-p1[2])**2)
         return dist
-        
+
 
     def count_number_of_in_out_edges_for_each_ROIs(out_,from_,emitter,reciever):
         """
