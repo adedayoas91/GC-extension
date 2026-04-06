@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
+import matplotlib.pyplot as plt
 import numpy as np
+
+from src.d_CSL import GcStar
 
 
 class Compute_metrics:
@@ -58,7 +61,7 @@ class Compute_metrics:
         return inferred_
 
 
-    def compute_distance_of_each_projection(self):
+    def compute_distance_of_each_projection(self, inf):
         """
 
         :param centers:

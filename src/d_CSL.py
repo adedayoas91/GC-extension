@@ -28,8 +28,8 @@ def perm_test(x, y, n_perm):
     x_copy = x.copy()
     for j in range(n_perm):
         # x_ = np.roll(x_copy, np.random.randint(30, x_copy.size), 0)
-        l = np.random.randint(30, x.size)
-        x_ = np.hstack((x_copy[l:], x_copy[:l]))
+        shift_len = np.random.randint(30, x.size)
+        x_ = np.hstack((x_copy[shift_len:], x_copy[:shift_len]))
         corr_2 = np.corrcoef(x_, y)[1, 0]
         if np.abs(corr_2) >= np.abs(corr_1):
             count += 1
@@ -38,7 +38,7 @@ def perm_test(x, y, n_perm):
 
 #@jit(nopython=True)
 def prep_data(X, nn):
-    if nn == None or nn == 0:
+    if nn is None or nn == 0:
         X_ = X
         return X_
     else:
@@ -73,9 +73,9 @@ def residual(x: np.ndarray, z: np.ndarray) -> np.ndarray:  # private
 
 class GcStar:
     """
-    Implementation of Granger causality from causal Bayesian network perspective. 
+    Implementation of Granger causality from causal Bayesian network perspective.
     Methods:
-        fit(self, data: np.ndarray) 
+        fit(self, data: np.ndarray)
         get_connectivity_matrix(self)
         plot_conn_mat_on_topography(self)
     """
@@ -91,7 +91,7 @@ class GcStar:
         Args:
             n_perm: number of permutations (default = 1000)
             n_pasts: number of past states
-            n_lags: maximum allowable lags 
+            n_lags: maximum allowable lags
             temporal: defines if data is time series or iid
         """
         # logging.basicConfig(level=logging.INFO)
@@ -176,7 +176,7 @@ class GcStar:
             n_pasts: number of pasts defining the number of shifts
 
         Returns:
-            Shifted data. 
+            Shifted data.
         """
 
         # self.data = arr.copy()
@@ -412,7 +412,7 @@ class GcStar:
             X: array-like of shape (n_neur, T)
                 where `n_neur` is the number of neurons or variables
                 and `T` is the time or number of samples
-            
+
             method: str. Defines which conditioning set to use.
                 Takes arguments "cgc" or "fcgc"
 
@@ -738,7 +738,7 @@ def compare_with_GT(A: np.ndarray,
 
     Returns:
         Color-coded inferred connectivity matrix with respect
-        TP, FP, TN, and FN.  
+        TP, FP, TN, and FN.
     """
     if simulation:
         A = A.T

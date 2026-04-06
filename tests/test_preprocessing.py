@@ -103,7 +103,6 @@ def test_replace_bad_frames_interpolate():
     from src.preprocessing.data_cleaning import replace_bad_frames
 
     arr = np.array([[1.0, 3.0, 5.0, 7.0, 9.0]])
-    bad = np.array([2])   # frame index 2 should become (3+7)/2 = 5 (already correct)
     # Let's pick index 1 → should become (arr[:,0]+arr[:,2])/2 = (1+5)/2 = 3
     arr = np.array([[0.0, 99.0, 4.0, 6.0, 8.0]])
     cleaned = replace_bad_frames(arr, np.array([1]), delete_frames=False)

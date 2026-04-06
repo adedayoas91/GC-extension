@@ -57,7 +57,7 @@ def simulate_data(A, m, iid=bool):
     """
     np.random.seed(10)
 
-    if iid==True:
+    if iid:
         X = np.zeros([A.shape[0],m]).T
         for i, row in enumerate(X):
             for n, var in enumerate(row):
@@ -87,9 +87,9 @@ def adj_mtx(n_neur):
 
 
 
-def continuous_noise_fun(num, l):
-    xx = np.linspace(0,500,l)
-    noise = np.zeros((num,l))
+def continuous_noise_fun(num, n_samples):
+    xx = np.linspace(0, 500, n_samples)
+    noise = np.zeros((num, n_samples))
     for i in range(num):
         a = 2*np.random.normal(0,0.25,size=6)
         c = 500*(np.random.random(size=6))
