@@ -248,7 +248,7 @@ class RisingFlankGrangerCausality:
             for j in range(n_idx):
                 i_ = i if i < x.shape[0] else i % n_idx
                 same_idx = sorted(set(idx[i_]).intersection(idx[j]))
-                if len(same_idx) > 0.1 * len(same_idx):
+                if len(same_idx) > 0.1 * min(len(idx[i_]), len(idx[j])):
                     dat = self.shift_data(x[:, same_idx])
                     corr[i, j] = np.abs(np.corrcoef(dat[i], dat[j])[1, 0])
                     p_val_corr[i, j] = self._perm_test(dat[i], dat[j])

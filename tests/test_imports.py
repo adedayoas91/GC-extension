@@ -3,12 +3,27 @@
 from __future__ import annotations
 
 
-def test_backward_compat_gcstar_alias():
-    """GcStar should be an alias for GrangerCausality."""
-    import src
-    from src.core.granger_causality import GrangerCausality
+def test_primary_class_name():
+    """The primary class should be importable as causalisedGrangerCausality."""
+    from src.core.granger_causality import causalisedGrangerCausality
 
-    assert src.GcStar is GrangerCausality
+    assert causalisedGrangerCausality.__name__ == "causalisedGrangerCausality"
+
+
+def test_backward_compat_gcstar_alias():
+    """GcStar should be an alias for causalisedGrangerCausality."""
+    import src
+    from src.core.granger_causality import causalisedGrangerCausality
+
+    assert src.GcStar is causalisedGrangerCausality
+
+
+def test_backward_compat_granger_causality_alias():
+    """GrangerCausality (pre-rename alias) should resolve to the same class."""
+    import src
+    from src.core.granger_causality import causalisedGrangerCausality
+
+    assert src.GrangerCausality is causalisedGrangerCausality
 
 
 def test_backward_compat_rising_flanks_alias():
@@ -48,7 +63,7 @@ def test_top_level_imports_work():
     import src
 
     public_names = [
-        "GrangerCausality",
+        "causalisedGrangerCausality",
         "RisingFlankGrangerCausality",
         "ICADecomposition",
         "ComputeMetrics",

@@ -6,7 +6,7 @@ flat-module imports from ``src/d_CSL.py``, ``src/rising_flanks.py``, etc.
 
 Usage
 -----
->>> from src import GrangerCausality, RisingFlankGrangerCausality
+>>> from src import causalisedGrangerCausality, RisingFlankGrangerCausality
 """
 
 from .constants import (
@@ -17,8 +17,8 @@ from .constants import (
     DEFAULT_N_PERM,
 )
 from .core import (
-    GrangerCausality,
     RisingFlankGrangerCausality,
+    causalisedGrangerCausality,
     combine,
     compare_with_gt,
     cross_corr,
@@ -55,7 +55,8 @@ from .preprocessing import (
 # ---------------------------------------------------------------------------
 
 # Classes
-GcStar = GrangerCausality                    # was d_CSL.GcStar
+GcStar = causalisedGrangerCausality          # was d_CSL.GcStar
+GrangerCausality = causalisedGrangerCausality  # pre-rename alias
 RisingFlanks = RisingFlankGrangerCausality   # was rising_flanks.RisingFlanks
 ICA_dec = ICADecomposition                   # was ICA_dec.ICA_dec
 Compute_metrics = ComputeMetrics             # was compute_metrics.Compute_metrics
@@ -67,8 +68,9 @@ replace_nan = replace_bad_frames             # was dataPreProcessing.replace_nan
 adj_mtx = adj_matrix                         # was dataload.adj_mtx
 
 __all__ = [
-    # New names
-    "GrangerCausality",
+    # Primary class (new name)
+    "causalisedGrangerCausality",
+    # Other new names
     "RisingFlankGrangerCausality",
     "ICADecomposition",
     "ComputeMetrics",
@@ -103,6 +105,7 @@ __all__ = [
     "DEFAULT_BETA",
     # Backward-compat aliases
     "GcStar",
+    "GrangerCausality",
     "RisingFlanks",
     "ICA_dec",
     "Compute_metrics",

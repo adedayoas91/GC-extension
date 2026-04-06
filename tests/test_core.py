@@ -87,10 +87,10 @@ def test_combine_no_gaps():
 
 @pytest.fixture
 def gc_model():
-    """Return a freshly instantiated GrangerCausality model."""
-    from src.core.granger_causality import GrangerCausality
+    """Return a freshly instantiated causalisedGrangerCausality model."""
+    from src.core.granger_causality import causalisedGrangerCausality
 
-    return GrangerCausality(
+    return causalisedGrangerCausality(
         n_perm=10,
         n_pasts=1,
         n_lags=1,
@@ -161,9 +161,9 @@ def test_compute_confusion_matrix_simulation_transposes(gc_model):
 
 def test_all_metrics_values():
     """Verify metric formulas with a hand-crafted confusion matrix."""
-    from src.core.granger_causality import GrangerCausality
+    from src.core.granger_causality import causalisedGrangerCausality
 
-    gc = GrangerCausality(n_perm=10, n_pasts=1, n_lags=1, temporal=True, method="cgc")
+    gc = causalisedGrangerCausality(n_perm=10, n_pasts=1, n_lags=1, temporal=True, method="cgc")
     # TP=3, FP=1, FN=1, TN=5
     gc.confusion_matrix = np.array([[3, 1], [1, 5]])
     metrics = gc.all_metrics()
@@ -195,10 +195,14 @@ def test_compare_with_gt_values():
     """Check the four colour codes for TP / FP / FN / TN."""
     from src.core.granger_causality import compare_with_gt
 
+    # a[0,0]=1 (GT has edge), inf[0,0]=1 → TP=40
+    # a[0,1]=0, inf[0,1]=1                → FP=30
+    # a[1,0]=0, inf[1,0]=0                → TN=10
+    # a[1,1]=0, inf[1,1]=0                → TN=10
     a = np.array([[1, 0], [0, 0]])
     inf = np.array([[1, 1], [0, 0]])
     result = compare_with_gt(a, inf, simulation=False)
     assert result[0, 0] == 40   # TP
     assert result[0, 1] == 30   # FP
-    assert result[1, 0] == 20   # FN (a!=0 but inf==0 → no, a==0 → FN impossible)
+    assert result[1, 0] == 10   # TN (a==0 and inf==0)
     assert result[1, 1] == 10   # TN

@@ -6,7 +6,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 
-from ..core.granger_causality import GrangerCausality
+from ..core.granger_causality import causalisedGrangerCausality  # noqa: F401
 
 
 class ComputeMetrics:

@@ -1,6 +1,6 @@
 """Core subpackage: Granger causality engines."""
 
-from .granger_causality import GrangerCausality, compare_with_gt
+from .granger_causality import causalisedGrangerCausality, compare_with_gt
 from .rising_flanks_gc import (
     RisingFlankGrangerCausality,
     cut_rising_flanks_lp,
@@ -19,7 +19,7 @@ from .shared import (
 
 __all__ = [
     # Main classes
-    "GrangerCausality",
+    "causalisedGrangerCausality",
     "RisingFlankGrangerCausality",
     # Compare / visualise helper
     "compare_with_gt",

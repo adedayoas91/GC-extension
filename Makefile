@@ -1,12 +1,18 @@
 install:
-	pip install --upgrade pip &&\
-		pip install -r requirements.txt
+uv pip install -e ".[dev]"
 
 test:
-	python -m pytest -vv test_hello.py
+python -m pytest --tb=short
 
+coverage:
+python -m pytest --cov=src --cov-report=term-missing
 
 lint:
-	pylint --disable=R,C d_CSL.py
+ruff check src/ tests/
 
-all: install test lint
+pylint:
+pylint src/ --fail-under=7.0
+
+all: install lint test
+
+.PHONY: install test coverage lint pylint all

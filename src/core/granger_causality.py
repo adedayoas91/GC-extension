@@ -1,7 +1,7 @@
 """Core Granger causality implementation.
 
-The :class:`GrangerCausality` class provides the primary interface for
-fitting conditional and unconditional Granger causality models to
+The :class:`causalisedGrangerCausality` class provides the primary interface
+for fitting conditional and unconditional Granger causality models to
 multivariate time-series data.
 """
 
@@ -33,7 +33,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-class GrangerCausality:
+class causalisedGrangerCausality:
     """Granger causality from a causal Bayesian network perspective.
 
     Parameters
@@ -270,7 +270,7 @@ class GrangerCausality:
     # Main fit
     # ------------------------------------------------------------------
 
-    def fit(self, x: np.ndarray, verbose: int = 1) -> "GrangerCausality":
+    def fit(self, x: np.ndarray, verbose: int = 1) -> "causalisedGrangerCausality":
         """Fit the Granger causality model to data.
 
         Parameters
@@ -282,7 +282,7 @@ class GrangerCausality:
 
         Returns
         -------
-        GrangerCausality
+        causalisedGrangerCausality
             The fitted instance (enables method chaining).
         """
         self.data = x.copy()
@@ -498,7 +498,7 @@ class GrangerCausality:
 
     def fit_rising(
         self, x: np.ndarray, idx: np.ndarray, verbose: int = 1
-    ) -> "GrangerCausality":
+    ) -> "causalisedGrangerCausality":
         """Fit Granger causality on rising-flank segments.
 
         Parameters
@@ -512,7 +512,7 @@ class GrangerCausality:
 
         Returns
         -------
-        GrangerCausality
+        causalisedGrangerCausality
             The fitted instance.
         """
         self.n_neur = x.shape[0]
@@ -526,7 +526,7 @@ class GrangerCausality:
             for j in range(n_idx):
                 i_ = i if i < x.shape[0] else i % n_idx
                 same_idx = sorted(set(idx[i_]).intersection(idx[j]))
-                if len(same_idx) > 0.25 * len(same_idx):
+                if len(same_idx) > 0.25 * min(len(idx[i_]), len(idx[j])):
                     dat = self.shift_data(x[:, same_idx])
                     corr[i, j] = np.abs(np.corrcoef(dat[i], dat[j])[1, 0])
                     p_val_corr[i, j] = self._perm_test_rising(dat[i], dat[j])

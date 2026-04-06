@@ -19,7 +19,7 @@ from ..constants import (
     SIGNIFICANCE_NS,
     SIGNIFICANCE_THRESHOLDS,
 )
-from ..core.granger_causality import GrangerCausality
+from ..core.granger_causality import causalisedGrangerCausality
 
 
 # ---------------------------------------------------------------------------
@@ -27,11 +27,11 @@ from ..core.granger_causality import GrangerCausality
 # ---------------------------------------------------------------------------
 
 
-class TopographyVisualizer(GrangerCausality):
+class TopographyVisualizer(causalisedGrangerCausality):
     """Visualise connectivity on a 3-D brain topography.
 
-    Inherits from :class:`~gc_extension.core.GrangerCausality` to reuse
-    the fitted correlation matrices and connectivity.
+    Inherits from :class:`src.core.granger_causality.causalisedGrangerCausality`
+    to reuse the fitted correlation matrices and connectivity.
 
     Parameters
     ----------
