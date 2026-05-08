@@ -78,7 +78,7 @@ def residual(x: np.ndarray, z: np.ndarray) -> np.ndarray:  # private
 @dataclass
 class GcStar:
     """
-    Implementation of Granger causality from causal Bayesian network perspective. 
+    Implementation of Granger causality from causal Bayesian network perspective.
     Methods:
         fit(self, data: np.ndarray)
         get_connectivity_matrix(self)
@@ -90,38 +90,38 @@ class GcStar:
     inv_corr_: Optional[np.ndarray]
     pVal_inv_corr_: Optional[np.ndarray]
 
-    # def __init__(self, n_perm: int, n_pasts: int, n_lags: int, temporal: bool, method: str):
-    #     """
+    def __init__(self, n_perm: int, n_pasts: int, n_lags: int, temporal: bool, method: str):
+        """
 
-    #     Args:
-    #         n_perm: number of permutations (default = 1000)
-    #         n_pasts: number of past states
-    #         n_lags: maximum allowable lags
-    #         temporal: defines if data is time series or iid
-    #     """
-    #     # logging.basicConfig(level=logging.INFO)
-    #     self.logger = None  # Initialize logger when needed
-    #     # self.logger = logging.getLogger(__name__)
+        Args:
+            n_perm: number of permutations (default = 1000)
+            n_pasts: number of past states
+            n_lags: maximum allowable lags
+            temporal: defines if data is time series or iid
+        """
+        # logging.basicConfig(level=logging.INFO)
+        self.logger = None  # Initialize logger when needed
+        # self.logger = logging.getLogger(__name__)
 
-    #     self.n_neur = None
-    #     self.n_perm = n_perm
-    #     self.n_pasts = n_pasts
-    #     self.n_lags = n_lags
-    #     self.method = method
-    #     self.temporal = temporal
+        self.n_neur = None
+        self.n_perm = n_perm
+        self.n_pasts = n_pasts
+        self.n_lags = n_lags
+        self.method = method
+        self.temporal = temporal
 
-    #     self.f_s = None
-    #     self.f_c = None
-    #     self.M = None
+        self.f_s = None
+        self.f_c = None
+        self.M = None
 
-    #     self.data = None
-    #     self.shifted_data = None
-    #     self.topography = None
+        self.data = None
+        self.shifted_data = None
+        self.topography = None
 
-    #     self.corr_ = None
-    #     self.pVal_corr_ = None
-    #     self.inv_corr_ = None
-    #     self.pVal_inv_corr_ = None
+        self.corr_ = None
+        self.pVal_corr_ = None
+        self.inv_corr_ = None
+        self.pVal_inv_corr_ = None
 
     def is_time_series(self) -> bool:
         """
@@ -447,12 +447,15 @@ class GcStar:
 
         if simulation:
             self.conn_mat = all_[1]
-        else:
-            if self.n_lags == 1:
-                self.conn_mat = np.logical_or(all_[0], all_[1])
-
-        for i in range(1, self.n_lags + 1):
-            self.conn_mat = np.logical_or(self.conn_mat, all_[i])
+            if self.n_lags > 1:
+                for i in range(2, self.n_lags + 1):
+                    self.conn_mat = np.logical_or(self.conn_mat, all_[i])
+        elif self.n_lags == 1:
+            self.conn_mat = np.logical_or(all_[0], all_[1])
+        elif self.n_lags > 1:
+            self.conn_mat = all_[0]
+            for i in range(1, self.n_lags + 1):
+                self.conn_mat = np.logical_or(self.conn_mat, all_[i])
 
         # multiplied with correlation matrix to return weighted connectivity
         # matrix (weights depict the connection strengths)

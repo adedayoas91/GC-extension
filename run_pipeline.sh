@@ -3,7 +3,7 @@
 echo "Enter filename with fluorescence calcium transients (without '.npy'): "
 echo "[Make sure each row corresponds to one neuron]"
 
-# read in data 
+# read in data
 read filename
 echo "File name is ${filename}.npy"
 traces = python3 -c'import ./src/dataload.py; dataload.load_data('${filename}.npy')'
@@ -16,7 +16,7 @@ echo "Frequency = $f_s Hz."
 echo "remove motion artifact ..."
 read decision
 if decision is True:
-do 
+do
     python3 -c'import ./src/dataPreProcessing.py; dataPreProcessing.replace_nan_(traces,bad_frames,delete_frames=True)'
 else:
 do
@@ -58,3 +58,5 @@ echo "Now we compute the granger causality..."
 #echo "p-value threshold = ${pthres}"
 
 ./compute_gc.py
+
+
