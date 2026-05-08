@@ -1,13 +1,20 @@
 # GC-extension
 
-This repo implements our re-examination of Granger's causality with Causal Bayesian networks (CBNs) and Reichenbach common cause principles (RCCPs). 
+This repo implements some enhancements we discussed in the paper currently in writing. We interpreted GC from Causal Bayesian networks (CBNs). 
+GC as a framework does not take into account the problems of latent confounders. During our study, we found a way to identify spurious links induced by latent confounders by testing for Markovianity. We have successfully showed this worked on synthetic data, and have deployed it on onservational data of larva zebrafish. 
 
-We implemented this algorithm as an open source and making it available for use in causal discovery.
+We found that the data is not Markov, and we are able to remove adequate number of inferred connections with our tests.
 
-How to use the code:
+We implemented this algorithm as an open source and making it available for use in the neuroscience community.
+
+To use this 
 
 Dependencies:
  > Clone this repo to your local machine 
- > Create a virtual env and run `make install`, this will install all required packages in the `requirements.txt` file. Another option is to simply create and environment with the `environment.yml` by running `conda env create --name environment_name -f environment.yml`.
-
-To run the code, there are example notebooks experimenting on various datasets. Please direct your questions to the corresponding author.
+ > Run `make install` from terminal. If you prefer to use an anaconda distribution; Open the  `init.ipynb` notebook and run the cell. 
+  This will install all required packages in the `requirements.txt` file.
+ > An example notebook on how to use the package is also provided for you. 
+ > 
+> 
+> 
+> Revert d_CSL to tue OCT 31 at 11PM for conditional correlation func

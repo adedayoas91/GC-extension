@@ -16,7 +16,7 @@ import logging
 import multiprocessing
 from cdt.metrics import SHD, SID
 from itertools import permutations
-
+from dataclasses import dataclass
 
 @jit(nopython=True)
 def perm_test(x, y, n_perm):
@@ -75,12 +75,12 @@ def residual(x: np.ndarray, z: np.ndarray) -> np.ndarray:  # private
 
     return x - np.dot(coefs, z) - intercept
 
-
+@dataclass
 class GcStar:
     """
-    Implementation of Granger causality from causal Bayesian network perspective. 
+    Implementation of Granger causality from causal Bayesian network perspective.
     Methods:
-        fit(self, data: np.ndarray) 
+        fit(self, data: np.ndarray)
         get_connectivity_matrix(self)
         plot_conn_mat_on_topography(self)
     """
@@ -96,7 +96,7 @@ class GcStar:
         Args:
             n_perm: number of permutations (default = 1000)
             n_pasts: number of past states
-            n_lags: maximum allowable lags 
+            n_lags: maximum allowable lags
             temporal: defines if data is time series or iid
         """
         # logging.basicConfig(level=logging.INFO)
@@ -126,8 +126,8 @@ class GcStar:
     def is_time_series(self) -> bool:
         """
             Collects a boolean (True or False)
-             True: specifying that data is time series e.g. calcium imaging data
-             False: independent and identically distributed (iid) data
+            True: specifying that data is time series e.g. calcium imaging data
+            False: independent and identically distributed (iid) data
         """
         return self.temporal
 
@@ -140,7 +140,7 @@ class GcStar:
     def get_number_of_perms(self) -> int:
         """
             Collects an integer valued number of permutations to be used
-             for all p-value computations
+            for all p-value computations
         """
         return self.n_perm
 
@@ -181,7 +181,7 @@ class GcStar:
             n_pasts: number of pasts defining the number of shifts
 
         Returns:
-            Shifted data. 
+            Shifted data.
         """
 
         # self.data = arr.copy()
@@ -211,64 +211,6 @@ class GcStar:
         """
         self.n_neur = self.shifted_data.shape[0] // (self.n_pasts + 1)
         return self.n_neur
-
-    # def bvgc_cond_set(self, X, i, j):
-    #     data = X.copy()
-    #     i_, k = i%self.n_neur, i//self.n_neur
-    #     self.shifted_data = self.shift_data(data)
-    #     x_idx = np.arange(i_ , self.shifted_data.shape[0]+1, self.n_neur)
-    #     y_idx = np.arange(j, self.shifted_data.shape[0]+1, self.n_neur)
-    #     return self.shifted_data[np.r_[x_idx[k+1:], y_idx[1:]], :]
-
-    # def correlation_func(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:  # private
-    #     """
-    #     Computes the unconditional dependence of any variable pair
-    #     using Pearson's correlation as a dependence metric
-
-    #     Args:
-    #         X: data from __shift_data()
-
-    #     Returns:
-    #         corr[:, :n]: np.ndarray shape [trimmed_arr.shape[0], self.n_neur]
-    #             Correlation matrix of the data, but done on the shifted data.
-    #             However, we select the portion that is most relevant for us
-    #             by slicing the matrix into the required shape.
-
-    #         pVal_corr: np.ndarray with shape as the correlation matrix.
-    #             contains the p-values of individual elements in
-    #             the correlation matrix
-    #     """
-    #     self.n_neur = X.copy().shape[0]
-    #     data = self.shift_data(X.copy())
-    #     n = data.shape[0]
-    #     # compute correlation and p-values matrices of shifted data
-    #     # corr = np.abs(np.corrcoef(self.shifted_data))
-
-    #     # Initialize p-value matrix of correlation
-    #     corr = np.zeros((n, self.n_neur))
-    #     pVal_corr = np.zeros((n, self.n_neur))
-
-    #     total_steps = n * self.n_neur
-    #     current_step = 0
-
-    #     # compute and populate p-value matrix
-    #     for i in range(n):
-    #         for j in range(self.n_neur):
-    #             x, y = data[i], data[j]
-    #             z = self.get_conditioning_set(data, i, j)
-
-    #             # compute residuals for both cause and effect
-    #             x_res, y_res  = residual(x, z), residual(y, z)
-
-    #             corr[i, j] = np.abs(np.corrcoef(x_res, y_res)[1, 0])
-    #             pVal_corr[i, j] = perm_test(x_res, y_res, self.n_perm)
-
-    #             current_step += 1
-    #             completion_percentage = (current_step / total_steps) * 100
-    #             self.logger.info(f"Step {current_step}/{total_steps} "
-    #                              f"({completion_percentage:.2f}% complete)")
-
-    #     return corr, pVal_corr
 
     def correlation_func(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -340,7 +282,7 @@ class GcStar:
 
 
     def inv_correlation_func(self, X: np.ndarray,
-                             method: str) -> Tuple[np.ndarray, np.ndarray]:
+                            method: str) -> Tuple[np.ndarray, np.ndarray]:
         """
         Computes the conditional dependency of any variable pair with Pearson's
         correlation as the dependence metric.
@@ -349,16 +291,16 @@ class GcStar:
 
         Args:
             X (np.ndarray): Time series data obtained with the
-             shape [n_neur x Time]
+            shape [n_neur x Time]
 
             method: str. Defines which conditioning set to use.
                 Takes arguments "cgc" or "fcgc"
 
-                 cgc: when conventional Granger causality conditioning set
-                  is preferred
+                cgc: when conventional Granger causality conditioning set
+                is preferred
 
-                 fcgc: when full conditioning set including future states
-                  is preferred for use.
+                fcgc: when full conditioning set including future states
+                is preferred for use.
 
 
         Returns:
@@ -405,7 +347,7 @@ class GcStar:
                 current_step += 1
                 completion_percentage = (current_step / total_steps) * 100
                 self.logger.info(f"Step {current_step}/{total_steps} "
-                                 f"({completion_percentage:.2f}% complete)")
+                                f"({completion_percentage:.2f}% complete)")
 
         return inv_corr, pVal_inv_corr
 
@@ -417,15 +359,15 @@ class GcStar:
             X: array-like of shape (n_neur, T)
                 where `n_neur` is the number of neurons or variables
                 and `T` is the time or number of samples
-            
+
             method: str. Defines which conditioning set to use.
                 Takes arguments "cgc" or "fcgc"
 
-                 cgc: when conventional Granger causality conditioning set
-                  is preferred
+                cgc: when conventional Granger causality conditioning set
+                is preferred
 
-                 fcgc: when full conditioning set with future states,
-                  is preferred for use.
+                fcgc: when full conditioning set with future states,
+                is preferred for use.
 
 
         Returns:
@@ -451,11 +393,11 @@ class GcStar:
             # Submit the inv_correlation_func task
             self.logger.info("Starting inv_correlation_func")
             inv_corr_future = executor.submit(self.inv_correlation_func,
-                                              X, method=self.method)
+                                            X, method=self.method)
 
             # Wait for both tasks to complete and get their results
             self.logger.info("Waiting for correlation_func and "
-                             "inv_correlation_func to complete")
+                            "inv_correlation_func to complete")
             corr_, pVal_corr_ = corr_future.result()
             inv_corr_, pVal_inv_corr_ = inv_corr_future.result()
 
@@ -505,12 +447,15 @@ class GcStar:
 
         if simulation:
             self.conn_mat = all_[1]
-        else:
-            if self.n_lags == 1:
-                self.conn_mat = np.logical_or(all_[0], all_[1])
-
-        for i in range(1, self.n_lags + 1):
-            self.conn_mat = np.logical_or(self.conn_mat, all_[i])
+            if self.n_lags > 1:
+                for i in range(2, self.n_lags + 1):
+                    self.conn_mat = np.logical_or(self.conn_mat, all_[i])
+        elif self.n_lags == 1:
+            self.conn_mat = np.logical_or(all_[0], all_[1])
+        elif self.n_lags > 1:
+            self.conn_mat = all_[0]
+            for i in range(1, self.n_lags + 1):
+                self.conn_mat = np.logical_or(self.conn_mat, all_[i])
 
         # multiplied with correlation matrix to return weighted connectivity
         # matrix (weights depict the connection strengths)
@@ -535,7 +480,7 @@ class GcStar:
 
         Returns:
             Confusion matrix with the form np.array([[TP, FP],
-                                                     [FN, TN]])
+                                                    [FN, TN]])
         """
         if simulation:
             A = A.T
@@ -544,9 +489,9 @@ class GcStar:
         FP = np.sum(np.logical_and(A == 0, self.conn_mat != 0))
         TN = np.sum(np.logical_and(A == 0, self.conn_mat == 0))
         self.confusion_matrix = np.array([[TP, FP],
-                                          [FN, TN]])
+                                        [FN, TN]])
         return self.confusion_matrix
-    
+
     def all_metrics(self):
         confusion_matrix = self.confusion_matrix.flatten()
         accuracy = (confusion_matrix[0] + confusion_matrix[3])/(np.sum(confusion_matrix))
@@ -554,51 +499,20 @@ class GcStar:
         recall = confusion_matrix[0]/(confusion_matrix[0]+confusion_matrix[2])
         FPR = confusion_matrix[1]/(confusion_matrix[1]+confusion_matrix[3])
 
-        # others 
+        # others
         specificity = confusion_matrix[3]/(confusion_matrix[3]+confusion_matrix[1])
         BA = (specificity + recall)/2
         F1 = 2 * (precision * recall) / (precision + recall)
         return np.array([accuracy, precision, recall, FPR, BA, F1])
-    
+
     def compute_shd_sid(self, A: np.ndarray,
                         inf: np.ndarray, simulation: bool) -> np.ndarray:
         if simulation:
             A = A.T
         self.shd_ = SHD(target=A, pred=inf, double_for_anticausal=False)
-        # TODO: To fix R-package which won't allow SID computations.    
+        # TODO: To fix R-package which won't allow SID computations.
         # self.sid_ = SID(target=A.T, pred=inf)
         return self.shd_ # , self.sid_
-
-
-    # def compute_SHD(self, A: np.ndarray,
-    #                     inf: np.ndarray) -> np.ndarray:
-    #     """
-    #     Computes SHD between two DAGs (adjacency matrices).
-    #     Accounts for edge additions, deletions, and reversals.
-    #     """
-    #     diff = np.abs(A - inf)
-    #     # Count reversed edges (where both directions exist)
-    #     reversed_edges = np.sum((A.T == inf) & (A != inf)) // 2
-    #     # SHD = FP + FN + R
-    #     self.shd = np.sum(diff) - reversed_edges
-    #     return self.shd
-    
-    # def compute_SID(self, A: np.ndarray,
-    #                     inf: np.ndarray) -> np.ndarray:
-    #     """
-    #     Computes SID by comparing interventional parent sets.
-    #     """
-    #     self.sid = 0
-    #     n_nodes = A.shape[0]
-    #     for i, j in permutations(range(n_nodes), 2):
-    #         # Parents of j when intervening on i in true graph
-    #         true_parents = set(np.where(A[:, j] == 1)[0]) - {i}
-    #         # Parents of j in inferred graph (intervening on i removes incoming edges)
-    #         inferred_parents = set(np.where(inf[:, j] == 1)[0]) - {i}
-    #         if true_parents != inferred_parents:
-    #             self.sid += 1
-    #     return self.sid
-
 
     ###########################################################################
 
@@ -631,7 +545,7 @@ class GcStar:
     def lp_filt(self) -> np.ndarray:
         amp = np.ones(self.M)
         amp[int(self.f_c * self.M / self.f_s):-int(self.f_c *
-                                                   self.M / self.f_s)] = 0
+                                                self.M / self.f_s)] = 0
         phase = np.zeros(self.M)
         H_f = amp * np.exp(1j * phase)
         h_n = np.fft.fftshift(np.real(np.fft.ifft(H_f)))
@@ -700,8 +614,8 @@ class GcStar:
     ###############################################################################
 
     def plot_extended_connectivity_matrix(self,
-                                          alpha: float = 0.01,
-                                          beta: float = 0.001):
+                                        alpha: float = 0.01,
+                                        beta: float = 0.001):
         """
         Plots connectivity matrix inferred into different matrices
         of corresponding pasts
@@ -729,7 +643,7 @@ class GcStar:
             axs[a].imshow(jj)
             axs[a].axis('off')
         plt.tight_layout()
-    
+
 def compare_with_GT(A: np.ndarray,
                         inf: np.ndarray,
                         simulation: bool) -> np.ndarray:
@@ -743,7 +657,7 @@ def compare_with_GT(A: np.ndarray,
 
     Returns:
         Color-coded inferred connectivity matrix with respect
-        TP, FP, TN, and FN.  
+        TP, FP, TN, and FN.
     """
     if simulation:
         A = A.T
